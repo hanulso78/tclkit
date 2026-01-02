@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>
+            Building Tcl 8.6 single file applications - a step-by-step guide | Magicsplat
+        </title><!-- Bootstrap core CSS -->
+    </head>
+    <body>
+        <main class="container">
+            <div class="row">
+                <section class="col-sm-9">
+                    <header>
+                        <h1 class="page-title">
+                            Building Tcl 8.6 single file applications - a step-by-step guide
+                        </h1>
+                        <div class="page-info">
+                            Published <time datetime="2020-12-28+0000" class="date">2020-12-28</time>
+                        </div>
+                    </header>
+                    <p>
+                        There is plenty of reference material on the Internet about building single file applications with Tcl but as is often is the case, some bit rot has set in that makes it confusing for new users. Taking a break from our series on Tcl 8.7, this short post aims to remedy that by providing a step-by-step guide for the process.
+                    </p><!-- more -->
+                    <p>
+                        Note however that there are a lot of base technologies (tclkits, <a href="http://freewrap.sourceforge.net/">freewrap</a> etc.), each of which additionally have multiple levels of functionality with a variety of configuration options. This post provides a recipe for building a single file application for just one specific combination based on the <em>tclkit</em> core. It does not go into any level of detail; for that, see one of the references listed at the end.
+                    </p>
+                    <p>
+                        The sample application we will create, <code>demo.exe</code>, prints all numbers supplied as arguments on the command line using a package we call <code>adder</code>.
+                    </p>
+                    <h2>
+                        Step 1: download prerequisites
+                    </h2>
+                    <p>
+                        To build a Tcl application as a single file executable, you need a <em>single file</em> Tcl shell (that includes Tk if you are building a GUI application) and the <code>sdx</code> tool for combining your own library and application components (including scripts and binaries) into a single file executable.
+                    </p>
+                    <p>
+                        Download a single file Tcl shell based on <code>tclkit</code> technology from <a href="http://tclkits.rkeene.org/fossil/wiki/Downloads">rkeene.org</a>. The sample session below uses the console version (without Tk) targeting 64-bit Windows. If a suitable version for your platform is not available there, or if you need additional common extensions, you can build and download a <a href="http://kitcreator.rkeene.org/kitcreator">custom version</a>.
+                    </p>
+                    <p>
+                        Download the <code>sdx</code> tool from any one of the many sites hosting it such as <a href="https://chiselapp.com/user/aspect/repository/sdx/uv/sdx-20110317.kit">this one</a>.
+                    </p>
+                    <p>
+                        For convenience, the session below assumes both are renamed.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;move sdx-20110317.kit sdx.kit
+        1 file(s) moved.
+D:\Temp\blog&gt;move tclkit-cli-8_6_10-twapi-4_4_1-x64-max.exe tclkit.exe
+        1 file(s) moved.</code></pre>
+                    <h2>
+                        Step 2: create the directory layout
+                    </h2>
+                    <p>
+                        Our directory layout will be based on the default directory layout expected by the <code>sdx</code> and <code>tclkit</code> based tools. Create the following directory structure:
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;mkdir demo.vfs
+D:\Temp\blog&gt;mkdir demo.vfs\lib</code></pre>
+                    <p>
+                        The top-level directory should be named after the application <code>demo</code> and have an extension of <code>.vfs</code>. This is only because we are conforming to expected defaults.
+                    </p>
+                    <h2>
+                        Step 3: copy any required packages
+                    </h2>
+                    <p>
+                        Add any required packages under the <code>lib</code> subdirectory. In our application, only the <code>adder</code> package is required. Create the <code>demo.vfs/lib/adder</code> directory.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;mkdir demo.vfs\lib\adder</code></pre>
+                    <p>
+                        Add the package's files to this directory.
+                    </p>
+                    <pre><code># File: demo.vfs/lib/adder/adder.tcl
+proc add args {
+  return [tcl::mathop::+ {*}$args]
+}
+
+package provide adder 1.0</code></pre>
+                    <p>
+                        The corresponding package index:
+                    </p>
+                    <pre><code># File: demo.vfs/lib/adder/pkgIndex.tcl
+package ifneeded adder 1.0 [list source [file join $dir adder.tcl]]</code></pre>
+                    <h2>
+                        Step 4: add your application files
+                    </h2>
+                    <p>
+                        Create a directory to contain your application files. There is no specific requirement here about where you place your files within the directory structure. For our simple application, create a directory for the application files.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;mkdir demo.vfs\app</code></pre>
+                    <p>
+                        Add a <code>demo.tcl</code> file to it.
+                    </p>
+                    <pre><code># File: demo.vfs/app/demo.tcl
+package require adder
+puts &quot;The sum is [tcl::mathop::+ {*}$::argv]&quot;</code></pre>
+                    <h2>
+                        Step 5: create the main script
+                    </h2>
+                    <p>
+                        The startup script must be called <code>main.tcl</code> and placed at the top level of the directory structure.
+                    </p>
+                    <pre><code># File: demo.vfs/main.tcl
+package require starkit
+starkit::startup
+source [file join [file dirname [info script]] app demo.tcl]</code></pre>
+                    <p>
+                        The <code>main.tcl</code> script may be a stub that loads the real application, as above, or it could be the entire application, or anything in between. However, the first two commands are mandatory. The first command loads the core functionality required to support <code>tclkit</code>/<code>starkit</code> that is built into the <code>tclkit</code> executables. The next command <code>starkit::startup</code> does some required initialization such as setting up the Tcl <code>auto_path</code> to look for packages in the <code>lib</code> subdirectory.
+                    </p>
+                    <h2>
+                        Step 6: build the executable
+                    </h2>
+                    <p>
+                        Finally, build the application executable using the <code>sdx</code> tool. This combines a Tcl single file executable, the <em>runtime</em>, with the application directory tree into a single executable. Because of some sdx and platform limitations, this runtime file must be a different physical file than the executable used to run the <code>sdx</code> tool. So first, we need to make a copy of the <code>tclkit</code> we downloaded.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;copy tclkit.exe runtime.exe
+        1 file(s) copied.</code></pre>
+                    <p>
+                        Now run the <code>sdx wrap</code> command to create our final executable.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;tclkit sdx.kit wrap demo -runtime runtime.exe
+886 updates applied
+6 updates applied</code></pre>
+                    <p>
+                        Note that the runtime need not be a copy of the <code>tclkit</code> executable used to invoke <code>sdx</code>. For example, it may be a <code>tclkit</code> version that includes Tk if the application is GUI-based.
+                    </p>
+                    <p>
+                        A quirk of the <code>sdx</code> tool is that it does not give the output file a file type on Windows so we need to rename it before running. This step is not needed on other platforms.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;rename demo demo.exe</code></pre>
+                    <p>
+                        The created executable can now be run on any system by just copying it. It does not need to have a Tcl interpreter pre-installed or any other supporting files.
+                    </p>
+                    <pre><code>D:\Temp\blog&gt;demo 1 2 3
+The sum is 6</code></pre>
+                    <h2>
+                        Conclusion
+                    </h2>
+                    <p>
+                        As stated earlier, the recipe above is just one way to construct a single file Tcl application. Several other alternatives exist (freewrap et al) and even with the <code>tclkit/sdx</code> tools, many other configurations are possible, either simpler or more generalized. The <code>sdx</code> tool also provides many facilities for examining and manipulating tclkits. See the references for more detail.
+                    </p>
+                    <h2>
+                        References
+                    </h2>
+                    <ol>
+                        <li>
+                            <p>
+                                <a href="http://www.digital-smarties.com/Tcl2002/tclkit.pdf">Beyond TclKit - Starkits, Starpacks and other stuff, Landers (PDF)</a>
+                            </p>
+                        </li>
+                        <li>
+                            <p>
+                                <a href="https://wiki.tcl-lang.org/page/sdx">SDX page on the Tcler's Wiki</a>
+                            </p>
+                        </li>
+                        <li>
+                            <p>
+                                <a href="https://www.magicsplat.com/books/ttpl/index.html">The Tcl Programming Language, A Comprehensive Guide, Chapter 19</a>
+                            </p>
+                        </li>
+                        <li>
+                            <p>
+                                <a href="https://www.amazon.com/Network-Programming-Community-Experience-Distilled-dp-1849510962/dp/1849510962">Tcl 8.5 Network Programming, Chapter 3</a>
+                            </p>
+                        </li>
+                    </ol>
+                </section>
+                </aside>
+                <div></div>
+            </div>
+            <footer class="footer">
+                <div class="copyright">
+                    Copyright &copy; 2021 Ashok P. Nadkarni
+                </div>
+            </footer>
+        </main><!-- /container -->
+    </body>
+</html>

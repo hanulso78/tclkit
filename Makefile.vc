@@ -1,0 +1,438 @@
+# -*- Makefile -*-
+#
+# This is an NMAKE file to be used to build tclkit using Microsoft Visual C++
+#
+# To make use of this build system create a build subdirectory 
+# 8.4\kit-msvc or 8.5\kit-msvc and create a Makefile that contains only
+#
+#  all: lite heavy
+#  !include ..\..\Makefile.vc
+#
+# Ensure that 8.5\tcl and 8.5\tk contain copies of the tcl and tk sources
+# (or 8.4\*, or 8.6\* if you are using another version)
+# You can download from http://prdownloads.sourceforge.net/tcl/
+#
+# Finally change to this build directory and build it all using 
+#  nmake -nologo VERSION=85
+#
+# If you want to create a symbols/debug build then add SYMBOLS=1
+#
+# For example:
+#
+#  mkdir 8.5
+#  cd 8.5
+#  unzip tcl858-src.zip
+#  rename tcl8.5.8 tcl
+#  unzip tk858-src.zip
+#  rename tk8.5.8 tk
+#  mkdir win32-ix86
+#  cd win32-ix86
+#  echo all: lite heavy            >  Makefile
+#  echo !include ..\..\Makefile.vc >> Makefile
+#  nmake -nologo VERSION=85
+#
+# If you want to work with the current development versions, then replace the zip
+# file download steps with a CVS checkout
+#
+
+!ifndef VERSION
+!message *** You must specify the Tcl version. Set VERSION=84, 85 or 86
+!message *** You may also specify SYMBOLS=0|1 and/or UPX=0|1
+!error
+!else
+V=$(VERSION)
+!endif
+
+!ifndef SYMBOLS
+SYMBOLS=0
+!endif
+
+!ifndef UPX
+!if ![upx -V > NUL]
+!message *** Enabling upx compression of executables
+UPX=1
+!else
+!message *** Disabling upx compression of executables
+UPX=0
+!endif
+!endif
+
+!ifndef UPXLEVEL
+UPXLEVEL=1
+!endif
+
+MAKE    = $(MAKE) -nologo
+CPY     = xcopy /i /y >NUL
+COPY    = copy /y >NUL
+RMDIR   = rmdir /s /q
+CC      = cl -nologo
+LINK    = link -nologo
+CFLAGS  = -W3 -D_WINDOWS -DWIN32 -DSTATIC_BUILD /I "C:\Program Files\Microsoft Platform SDK\Include"
+BUILD   = $(MAKEDIR)\build
+
+# NOTE: if you do this then the tcl::pkgconfig command will
+#       work but you better ensure that the paths you embed
+#       a actually utf-8 (in reality - ASCII).
+#       Without this, the registration of the pkgconfig data will
+#       fail becuase cp1252 is unavailable at registration time.
+TCL_MAKE_FLAGS = CFG_ENCODING="\"\\\"utf-8\\\"\""
+TK_MAKE_FLAGS = $(TCL_MAKE_FLAGS)
+
+!if $V == 84
+PARTS   = vqtcl vfs
+OPTS    = static,msvcrt
+X       = sx
+!ifndef KITOPTS
+KITOPTS = 
+!endif
+LIBS    = user32.lib gdi32.lib comdlg32.lib comctl32.lib \
+	  shell32.lib imm32.lib advapi32.lib
+!else
+PARTS   = vqtcl vfs threaddyn
+OPTS    = static,msvcrt,threads
+X       = tsx
+!ifndef KITOPTS
+KITOPTS = -t
+!endif
+LIBS    = netapi32.lib user32.lib gdi32.lib ws2_32.lib
+!endif
+
+!if $V > 85
+# Jan has been messing with the linker requirements in 8.6
+LIBS = $(LIBS) $(BUILD)\lib\tclstub$V.lib
+!endif
+
+!if $V < 86
+PARTS = $(PARTS) zlib
+LIBS  = $(BUILD)\lib\zlib.lib $(LIBS) 
+!endif
+
+!if $(SYMBOLS)
+X       = $(X:x=gx)
+OPTS    = $(OPTS),symbols
+CFLAGS  = -MDd -Od -Zi -D_DEBUG $(CFLAGS)
+LDFLAGS = -debug
+UPXCOMP =
+!else
+CFLAGS  = -MD -Zi -O2 -DNDEBUG $(CFLAGS)
+LDFLAGS = -debug
+!if $(UPX)
+!if $(UPXLEVEL) > 1
+# can add --ultra-brute --compress-resources=0 for release
+UPXCOMP = upx -q --ultra-brute --compress-resources=0 $@
+!else
+UPXCOMP = upx -q9 $@ >NUL
+!endif
+!endif
+!endif
+
+#-------------------------------------------------------------------------
+# MSVC > 8 (Visual Studio 2005+) generates a manifest
+# file that we should link into the binaries. This is how.
+#-------------------------------------------------------------------------
+
+_VC_MANIFEST_EMBED_EXE=
+_VC_MANIFEST_EMBED_DLL=
+VCVER=0
+!if ![echo VCVERSION=_MSC_VER > vercl.x] \
+    && ![cl -nologo -TC -P vercl.x >NUL]
+!include vercl.i
+!if ![del /q vercl.i vercl.x >NUL]
+!endif
+!if $(VCVERSION) >= 1500
+VCVER=9
+!elseif $(VCVERSION) >= 1400
+VCVER=8
+!elseif $(VCVERSION) >= 1300
+VCVER=7
+!elseif $(VCVERSION) >= 1200
+VCVER=6
+!endif
+!endif
+!if $(VCVERSION) >= 1400
+_VC_MANIFEST_EMBED_EXE=if exist $@.manifest mt -nologo -manifest $@.manifest -outputresource:$@;1
+_VC_MANIFEST_EMBED_DLL=if exist $@.manifest mt -nologo -manifest $@.manifest -outputresource:$@;2
+!endif
+
+!ifndef MACHINE
+!if "$(CPU)" == "" || "$(CPU)" == "i386"
+MACHINE		= IX86
+!else
+MACHINE         = $(CPU)
+!endif
+!endif
+
+# Avoid 'unresolved external symbol __security_cookie' errors.
+# c.f. http://support.microsoft.com/?id=894573
+!if "$(MACHINE)" == "IA64" || "$(MACHINE)" == "AMD64"
+!if $(VCVERSION) >= 1400 && $(VCVERSION) < 1500
+LIBS    = $(LIBS) bufferoverflowU.lib
+!endif
+!endif
+
+#-------------------------------------------------------------------------
+
+CLIOBJS = $(BUILD)\pwb.obj $(BUILD)\rechan.obj \
+	 $(BUILD)\tclAppInit.obj $(BUILD)\tclkitsh.res
+
+GUIOBJS = $(BUILD)\pwb.obj $(BUILD)\rechan.obj \
+	  $(BUILD)\winMain.obj $(BUILD)\tclkit.res
+
+!if $V < 86
+CFLAGS=$(CFLAGS) -DKIT_INCLUDES_ZLIB=1
+CLIOBJS = $(CLIOBJS) $(BUILD)\zlib.obj
+GUIOBJS = $(GUIOBJS) $(BUILD)\zlib.obj
+!endif
+
+#-------------------------------------------------------------------------
+
+#all: lite heavy
+lite: tclkit-cli tclkit-gui
+heavy: tclkitsh tclkit
+tclkit-cli: tclkit-cli.exe
+tclkit-gui: tclkit-gui.exe
+tclkitsh:   tclkitsh.exe
+tclkit:     tclkit.exe
+
+tclkit-cli.exe: kit-cli.exe tidy
+	@$(COPY) kit-cli.exe $@
+	-@$(UPXCOMP)
+	kit-cli.exe -init- ../../setupvfs.tcl $(KITOPTS) $@ cli
+	$@ ../../validate.tcl
+
+tclkit-gui.exe: kit-gui.exe tidy
+	@$(COPY) kit-gui.exe $@
+	-@$(UPXCOMP)
+	kit-cli.exe -init- ../../setupvfs.tcl $(KITOPTS) $@ gui
+
+kit-cli.exe: setup tcl $(PARTS) files $(CLIOBJS)
+	@$(CC) $(CFLAGS) -I$(BUILD)/include -DKIT_LITE -DSTATIC_BUILD \
+	  -c ../../kitInit.c -Fo$(BUILD)/kitInit.obj
+	@$(LINK) $(LDFLAGS) -subsystem:console -out:$@ $(CLIOBJS) \
+	  $(BUILD)\kitInit.obj \
+	  $(BUILD)\lib\vfs1.4\vfs1*.lib \
+	  $(BUILD)\lib\vqtcl4.1\vqtcl4*.lib \
+	  $(BUILD)\lib\tcl$V*.lib \
+	  $(BUILD)\lib\tcldde1*.lib \
+	  $(BUILD)\lib\tclreg1*.lib $(LIBS)
+	$(_VC_MANIFEST_EMBED_EXE)
+
+kit-gui.exe: setup tcl tk $(PARTS) files $(GUIOBJS)
+	@$(CC) $(CFLAGS) -I$(BUILD)/include -DKIT_LITE -DKIT_INCLUDES_TK \
+	  -c ../../kitInit.c -Fo$(BUILD)/kitInit.obj
+	@$(LINK) $(LDFLAGS) -subsystem:windows -out:$@ $(GUIOBJS) \
+	  $(BUILD)\kitInit.obj \
+	  $(BUILD)\lib\vfs1.4\vfs1*.lib \
+	  $(BUILD)\lib\vqtcl4.1\vqtcl4*.lib \
+	  $(BUILD)\lib\tcl$V*.lib \
+	  $(BUILD)\lib\tk$V*.lib \
+	  $(BUILD)\lib\tcldde1*.lib \
+	  $(BUILD)\lib\tclreg1*.lib $(LIBS)
+	$(_VC_MANIFEST_EMBED_EXE)
+
+#-------------------------------------------------------------------------
+
+tclkitsh.exe: kitsh.exe tidy
+	@$(COPY) kitsh.exe $@
+	-@$(UPXCOMP)
+	kitsh.exe -init- ../../setupvfs.tcl $(KITOPTS) $@ cli
+	$@ ../../validate.tcl
+
+tclkit.exe: kitsh.exe kit.exe tidy
+	@$(COPY) kit.exe $@
+	-@$(UPXCOMP)
+	kitsh.exe -init- ../../setupvfs.tcl $(KITOPTS) $@ gui
+
+kitsh.exe: setup tcl mk itcl $(PARTS:vqtcl=) files $(CLIOBJS)
+	@$(CC) $(CFLAGS) -I$(BUILD)/include -DSTATIC_BUILD \
+	  -DKIT_INCLUDES_ITCL -c ../../kitInit.c -Fo$(BUILD)/kitInit.obj
+	$(LINK) $(LDFLAGS) -subsystem:console -out:$@ $(CLIOBJS) \
+	  $(BUILD)\kitInit.obj \
+	  $(BUILD)\mk4tcl.obj $(BUILD)\mk4too.obj \
+	  $(BUILD)\lib\vfs1.4\vfs1*.lib \
+	  $(BUILD)\lib\mk4vc*.lib \
+	  $(BUILD)\lib\itcl3.4\itcl3*.lib \
+	  $(BUILD)\lib\tcl$V*.lib \
+	  $(BUILD)\lib\tcldde1*.lib \
+	  $(BUILD)\lib\tclreg1*.lib $(LIBS)
+	$(_VC_MANIFEST_EMBED_EXE)
+
+kit.exe: setup tcl tk mk itcl $(PARTS:vqtcl=) files $(GUIOBJS)
+	@$(CC) $(CFLAGS) -I$(BUILD)/include -DSTATIC_BUILD \
+	  -DKIT_INCLUDES_ITCL -DKIT_INCLUDES_TK \
+	  -c ../../kitInit.c -Fo$(BUILD)/kitInit.obj
+	@$(LINK) $(LDFLAGS) -subsystem:windows -out:$@ $(GUIOBJS) \
+	  $(BUILD)\kitInit.obj \
+	  $(BUILD)\mk4tcl.obj $(BUILD)\mk4too.obj \
+	  $(BUILD)\lib\vfs1.4\vfs1*.lib \
+	  $(BUILD)\lib\mk4vc*.lib \
+	  $(BUILD)\lib\itcl3.4\itcl3*.lib \
+	  $(BUILD)\lib\tcl$V*.lib \
+	  $(BUILD)\lib\tk$V*.lib \
+	  $(BUILD)\lib\tcldde1*.lib \
+	  $(BUILD)\lib\tclreg1*.lib $(LIBS)
+	$(_VC_MANIFEST_EMBED_EXE)
+
+tcl: $(BUILD)\lib\tcl$V$X.lib
+$(BUILD)\lib\tcl$V$X.lib:
+	pushd ..\tcl\win & $(MAKE) -f Makefile.vc INSTALLDIR=$(BUILD) \
+	  OPTS=$(OPTS) TMP_DIR=$(BUILD)\tcl $(TCL_MAKE_FLAGS) \
+	  OUT_DIR=$(BUILD)\tcl release & \
+	  $(MAKE) -f Makefile.vc INSTALLDIR=$(BUILD) \
+	  OPTS=$(OPTS) TMP_DIR=$(BUILD)\tcl \
+	  OUT_DIR=$(BUILD)\tcl install-binaries install-libraries
+
+tk: $(BUILD)\lib\tk$V$X.lib
+$(BUILD)\lib\tk$V$X.lib:
+	pushd ..\tk\win & $(MAKE) -f Makefile.vc INSTALLDIR=$(BUILD) \
+	  TCLDIR=$(BUILD)\..\..\tcl OPTS=$(OPTS) $(TK_MAKE_FLAGS) \
+	  TMP_DIR=$(BUILD)\tk OUT_DIR=$(BUILD)\tk \
+	  core $(BUILD)\tk\wish.res install-libraries
+	$(COPY) $(BUILD)\tk\tk$V$X.lib $(BUILD)\lib
+
+vqtcl: $(BUILD)\lib\vqtcl4.1\vqtcl41$X.lib
+$(BUILD)\lib\vqtcl4.1\vqtcl41$X.lib:
+	pushd ..\..\8.x\vqtcl\win & $(MAKE) -f Makefile.vc \
+	  INSTALLDIR=$(BUILD) OPTS=$(OPTS) TMP_DIR=$(BUILD)\vqtcl \
+	  OUT_DIR=$(BUILD)\vqtcl all install
+
+threaddyn: $(BUILD)\lib\threaddyn\thread26.dll
+$(BUILD)\lib\threaddyn\thread26.dll:
+	pushd ..\..\8.x\thread\win\vc & $(MAKE) -f Makefile.vc \
+	  INSTALLDIR=$(BUILD) OPTS=none TMP_DIR=$(BUILD)\threaddyn \
+	  OUT_DIR=$(BUILD)\threaddyn all install
+
+thread: $(BUILD)\lib\thread\thread26$(X:t=).lib
+$(BUILD)\lib\thread\thread26$(X:t=).lib:
+	pushd ..\..\8.x\thread\win\vc & $(MAKE) -f Makefile.vc \
+	  INSTALLDIR=$(BUILD) OPTS=$(OPTS) TMP_DIR=$(BUILD)\thread \
+	  OUT_DIR=$(BUILD)\thread all install
+
+vfs: $(BUILD)\lib\vfs1.4\vfs14$(X:t=).lib
+$(BUILD)\vfs.obj:
+	$(CC) $(CFLAGS) -DSTATIC_BUILD -I..\tcl\generic -I..\tcl\win \
+	  -I..\..\8.x\tclvfs\generic -c ..\..\8.x\tclvfs\generic\vfs.c \
+	  -Fo$(BUILD)\vfs.obj
+	$(CPY) ..\..\8.x\tclvfs\library $(BUILD)\lib\vfs1.4^\
+
+$(BUILD)\lib\vfs1.4\vfs14$(X:t=).lib:
+	pushd ..\..\8.x\tclvfs\win & $(MAKE) -f Makefile.vc \
+	  INSTALLDIR=$(BUILD) TCLDIR=$(BUILD)\..\..\tcl \
+	  OPTS=$(OPTS) TMP_DIR=$(BUILD)\vfs \
+	  OUT_DIR=$(BUILD)\vfs all install-binaries install-libraries
+
+zlib: $(BUILD)\lib\zlib.lib
+$(BUILD)\lib\zlib.lib:
+	pushd ..\..\8.x\zlib & $(MAKE) -f win32/makefile.msc clean zlib.lib \
+	  & $(COPY) zlib.lib $(BUILD)\lib\zlib.lib
+
+itcl: $(BUILD)\itcl\itcl34$(X:t=).lib
+$(BUILD)\itcl\itcl34$(X:t=).lib:
+	pushd ..\..\8.x\itcl\win & $(MAKE) -f Makefile.vc \
+	  INSTALLDIR=$(BUILD) TCLDIR=$(BUILD)\..\..\tcl \
+	  OPTS=$(OPTS) TMP_DIR=$(BUILD)\itcl \
+	  OUT_DIR=$(BUILD)\itcl all install-binaries install-libraries
+
+mk: $(BUILD)\lib\mk4vc$(VCVER)0$(X:t=).lib
+$(BUILD)\lib\mk4vc$(VCVER)0$(X:t=).lib:
+	pushd ..\..\8.x\mk\win & $(MAKE) -f Makefile.vc \
+	  OPTS=$(OPTS) TMP_DIR=$(BUILD)\mk \
+	  OUT_DIR=$(BUILD)\mk mklib
+	$(CC) $(CFLAGS) -I$(BUILD)/include -I../../8.x/mk/include \
+	  -c ../../8.x/mk/tcl/mk4tcl.cpp -Fo$(BUILD)/mk4tcl.obj
+	$(CC) $(CFLAGS) -I$(BUILD)/include -I../../8.x/mk/include \
+	  -c ../../8.x/mk/tcl/mk4too.cpp -Fo$(BUILD)/mk4too.obj
+	$(COPY) $(BUILD)\mk\mk4vc$(VCVER)0$(X:t=).lib $@
+
+$(BUILD)\pwb.obj: ..\..\pwb.c
+	$(CC) $(CFLAGS) -I$(BUILD)\include -Fo$@ -c $**
+
+$(BUILD)\rechan.obj: ..\..\rechan.c
+	$(CC) $(CFLAGS) -I$(BUILD)\include -Fo$@ -c $**
+
+$(BUILD)\zlib.obj: ..\..\zlib.c
+	$(CC) $(CFLAGS) -I$(BUILD)\include -I..\..\8.x\zlib -Fo$@ -c $**
+
+$(BUILD)\tclAppInit.obj: ..\tcl\win\tclAppInit.c
+	$(CC) $(CFLAGS) -I$(BUILD)\include \
+	  -DTCL_LOCAL_APPINIT=TclKit_AppInit -Fo$@ -c $**
+
+$(BUILD)\winMain.obj: ..\tk\win\winMain.c
+	$(CC) $(CFLAGS) -I$(BUILD)\include \
+	  -I..\tcl\generic -I..\tcl\win -I..\tk\generic -I..\tk\win \
+	  -DTK_LOCAL_APPINIT=TclKit_AppInit -Fo$@ -c $**
+
+$(BUILD)\tclkitsh.res: ..\..\tclkit.rc
+	$(RC) -fo $@ -r -d STATIC_BUILD=1 -i $(BUILD)\include \
+	  -i $(BUILD)\files -i ..\tcl\win\rc $**
+
+$(BUILD)\tclkit.res: ..\..\tclkit.rc
+	$(COPY) $** $(BUILD)\tk\tclkit.rc
+	$(RC) -fo $@ -r -d STATIC_BUILD=1 -d BASE_NO_TK_ICON=1 \
+	  -d TCLKIT_WITH_TK -i $(BUILD)\include -i $(BUILD)\tk \
+	  -i $(BUILD)\files -i ..\tk\win\rc $(BUILD)\tk\tclkit.rc
+
+.PHONY: setup files tidy clean
+
+files:
+	@$(CPY) ..\..\files $(BUILD)\files^\
+
+setup:
+	@if not exist $(BUILD) mkdir $(BUILD)
+
+release:
+	@if exist tclkit-cli.exe (\
+	    $(COPY) tclkit-cli.exe tmp.exe \
+	) else ( \
+	    $(COPY) tclkitsh.exe tmp.exe \
+	)
+	@tmp.exe <<
+set D "release-[package provide Tcl]"
+set V [string map {. {}} [package provide Tcl]]
+puts "copying executables to $$D"
+file mkdir $$D
+foreach {f s} {tclkit-cli - tclkit-gui - tclkitsh "" tclkit ""} {
+    if {[file exists $$f.exe]} {
+        file copy -force $$f.exe $$D/$$f$$s$$V.exe
+    }
+}
+<<
+	@del tmp.exe >NUL
+
+tidy:
+	@echo Tidying...
+	-@if exist kit-cli.exp del kit-cli.exp
+	-@if exist kit-cli.lib del kit-cli.lib
+	-@if exist kit-cli.ilk del kit-cli.ilk
+	-@if exist kit-gui.exp del kit-gui.exp
+	-@if exist kit-gui.lib del kit-gui.lib
+	-@if exist kit-gui.ilk del kit-gui.ilk
+	-@if exist kitsh.exp del kitsh.exp
+	-@if exist kitsh.lib del kitsh.lib
+	-@if exist kitsh.ilk del kitsh.ilk
+	-@if exist kit.exp del kit.exp
+	-@if exist kit.lib del kit.lib
+	-@if exist kit.ilk del kit.ilk
+	-@if exist vercl.i del vercl.i
+	-@if exist vercl.x del vercl.x
+
+clean: tidy
+	@if exist build\nul $(RMDIR) build
+	@if exist kit-cli.exe del kit-cli.exe
+	@if exist kit-cli.pdb del kit-cli.pdb
+	@if exist kit-gui.exe del kit-gui.exe
+	@if exist kit-gui.pdb del kit-gui.pdb
+	@if exist kitsh.exe del kitsh.exe
+	@if exist kitsh.pdb del kitsh.pdb
+	@if exist kit.exe del kit.exe
+	@if exist kit.pdb del kit.pdb
+	@if exist vc$(VCVER)0.pdb del vc$(VCVER)0.pdb
+
+distclean: clean
+	@if exist tclkit.exe del tclkit.exe
+	@if exist tclkitsh.exe del tclkitsh.exe
+	@if exist tclkit-cli.exe del tclkit-cli.exe
+	@if exist tclkit-gui.exe del tclkit-gui.exe
+	@if exist tclkit-dyn.exe del tclkit-dyn.exe
+
+#EOF

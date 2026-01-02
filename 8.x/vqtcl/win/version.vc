@@ -1,0 +1,5 @@
+REM = This file is generated from rules.vc 
+TCL_DOTVERSION = \
+8.4
+OUT_DIR_PATH = \
+F:\mingw-4.6.1\works\mytcl\patthoyts-kitgen\8.4\win32-x86\build\vqtcl

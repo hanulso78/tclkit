@@ -1,0 +1,35 @@
+-------------------------------------------------------------------
+Build on MSYS2/MinGW 4.6.1 
+-------------------------------------------------------------------
+
+kitgen 빌드스크립트 위치:
+	http://github.com/patthoyts/kitgen/
+
+0. makefile.include 파일의 "SO ?=.so" 를 "SO ?=.dll" 를 변경.
+1. 8.6 디렉토리를 만든다.
+2. 8.6 디렉토리내에 kit-large, kit-small 디렉토리를 만든다.
+3. 8.6 디렉토리내에 tcl, tk 소스코드를 푼다.
+4. 디렉토리 이름을 변경한다.
+	tcl8.6.10 -> tcl
+	tk8.6.10 -> tk
+
++- 8.6
+   +- kit-large
+   +- kit-small
+   +- tcl
+   +- tk
+
+# --- large 빌드 ----
+5. sh config.sh 8.6/kit-large cli gui mk aqua univ thread allenc allmsgs tzdata
+6. cd 8.6/kit-large && make
+	- kit-large 안에 tclkit-cli.exe, tclkit-gui.exe 가 생성됨.
+	- upx -d tclkit-cli.exe tclkit-gui.exe tclkitsh.exe
+
+# --- small 빌드 ----
+7. sh config.sh 8.6/kit-small cli dyn mk
+8. cd 8.6/kit-small && make
+	- kit-small 안에 tclkit-cli.exe, tclkit-dyn.exe 가 생성됨.
+	- upx -d tclkit-cli.exe tclkit-dyn.exe tclkitsh.exe
+
+# -------------------
+마지막으로 필요한 피일들을 복사한다.
