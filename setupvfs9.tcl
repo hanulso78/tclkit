@@ -17,7 +17,7 @@
 #   tk_library/    Tk script library                       (gui)
 #   lib/           packages: static extensions, Tk dll (dyn), starkit
 #
-# An application adds main.tcl on top of that, see README.
+# An application adds main.tcl on top of that, see README.md.
 
 set debugOpt 0
 set encOpt 0

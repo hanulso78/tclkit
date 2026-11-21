@@ -1,7 +1,7 @@
 # -*- Makefile -*-
 #
 #	This file should be included from your platform specific
-#	Makefile. See the README documents and config.sh.
+#	Makefile. See README.md and config.sh.
 #
 #	NOTE: this file requires GNU Make.
 #

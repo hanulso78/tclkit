@@ -20,7 +20,7 @@
 #   small = cli + dyn (Tk as a shared library inside the kit), basic encodings
 #
 # The 8.x kits also contain the classic Metakit based tclkit/tclkitsh pair.
-# Tcl 9 kits are zipfs based, see README.
+# Tcl 9 kits are zipfs based, see README.md.
 
 VERSIONS="8.4.20 8.5.19 8.6.18 9.0.4"
 
