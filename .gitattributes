@@ -1,0 +1,5 @@
+# These are read by sh, make, patch and tclsh under MSYS2: keep LF on checkout
+*.sh       text eol=lf
+*.include  text eol=lf
+*.tcl      text eol=lf
+*.patch    -text
