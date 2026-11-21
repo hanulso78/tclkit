@@ -1,0 +1,324 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD><TITLE>Building Tcl 9 single file applications with tclkit</TITLE>
+<META http-equiv="Content-Type" content="text/html; charset=utf-8">
+<!-- docs.css -->
+<style type="text/css">
+/* tclkit documents: colors of the classic tcltk.co.kr theme (navy) */
+
+body, div, p, th, td, li, dd, ul, ol, dl, dt, blockquote {
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+
+body {
+    font-size:         12px;
+    line-height:       1.35;
+    color:             #D0D0D0;
+    background-color:  #404860;
+    margin:            0px;
+    padding:           0.5em 1em 1em 1em;
+}
+
+a {
+    font-weight:       bold;
+    text-decoration:   none;
+    color:             #FFFFFF;
+}
+a:hover { color: #E0E080; }
+
+b { color: #FFFFFF; }
+i { color: #E0E0E0; }
+
+pre, code { font-family: 'Courier New', Courier, monospace; }
+
+pre {
+    color:             #FFFFFF;
+    background-color:  #383F54;
+    border-left:       1px solid #303648;
+    border-top:        1px solid #303648;
+    border-right:      1px solid #606C90;
+    border-bottom:     1px solid #606C90;
+    padding:           0.8em 1em;
+    overflow:          auto;
+}
+
+h1, h2, h3, h4 {
+    font-family:       Verdana, Arial, Helvetica, sans-serif;
+    font-weight:       bold;
+    padding-left:      0.6em;
+    margin-top:        1em;
+}
+
+h1 {
+    font-size:         21pt;
+    color:             #FFFFFF;
+}
+
+/* page title bar: raised like the site's menu cells */
+h2 {
+    font-size:         14px;
+    color:             #FFFFFF;
+    background-color:  #303648;
+    border-left:       1px solid #606C90;
+    border-top:        1px solid #606C90;
+    border-right:      1px solid #202430;
+    border-bottom:     1px solid #202430;
+    padding:           4px 0.8em 5px 0.8em;
+    margin-top:        0.4em;
+}
+h2 a { color: #FFFFFF; }
+h2 small { color: #9094A0; }
+
+/* section headings: yellow like the site's legends, over an etched line */
+h3, h4 {
+    color:             #E0E080;
+    border-top:        1px solid #303648;
+    border-bottom:     1px solid #606C90;
+    background-color:  #48516C;
+    padding-top:       2px;
+    padding-bottom:    3px;
+}
+h3 { font-size: 12px; }
+h4 { font-size: 11px; background-color: #444D66; }
+h3 a, h4 a { color: #E0E080; }
+
+/* navigation line under the title */
+h3.nav {
+    background-color:  transparent;
+    border:            0px;
+    font-weight:       normal;
+    margin-top:        0.3em;
+}
+h3.nav a { color: #FFFFFF; }
+
+.keylist dt, .arguments dt {
+    width:             20em;
+    float:             left;
+    padding:           2px;
+    border-top:        1px solid #606C90;
+}
+.keylist dt { font-weight: bold; color: #FFFFFF; }
+.keylist dd, .arguments dd {
+    margin-left:       20em;
+    padding:           2px;
+    border-top:        1px solid #606C90;
+}
+
+table td { color: #D0D0D0; padding: 1px 12px 1px 0; }
+
+small { color: #9094A0; }
+small a { font-weight: normal; }
+
+.copy {
+    color:             #9094A0;
+    background-color:  #303648;
+    white-space:       pre;
+    font-size:         80%;
+    border-top:        1px solid #606C90;
+    margin-top:        2em;
+    padding:           4px 0.8em;
+}
+
+/* the gallery picture on a manual page */
+img.shot { max-width: 100%; border: 1px solid #50587A; border-radius: 4px; margin: 4px 0 8px 0; }
+
+/* --- additions for the tclkit how-to pages --- */
+
+/* keep long text readable on wide screens */
+main.container, div.page { max-width: 62em; }
+
+p code, li code, dd code, td code { color: #FFFFFF; }
+
+/* publication line of the 8.x how-to */
+.page-info { color: #9094A0; padding-left: 0.6em; margin-bottom: 1em; }
+
+/* notes and warnings */
+p.note {
+    color:             #E0E0E0;
+    background-color:  #48516C;
+    border-left:       3px solid #E0E080;
+    padding:           5px 0.8em;
+}
+
+table.grid { border-collapse: collapse; margin: 0.5em 0 1em 0; }
+table.grid th, table.grid td {
+    border:            1px solid #606C90;
+    padding:           3px 10px;
+    text-align:        left;
+    vertical-align:    top;
+}
+table.grid th { color: #FFFFFF; background-color: #303648; }
+</style>
+<!-- /docs.css -->
+</HEAD>
+<BODY><div class="page">
+<H2>tclkit <small>&gt;</small> Building Tcl 9 single file applications</H2>
+<H3 class="nav"><A HREF="HOWTOUSE.HTML">Tcl 8.4 / 8.5 / 8.6 (Metakit, sdx)</A> | <A HREF="HOWTOUSE9.HTML">Tcl 9 (zipfs)</A> | <A HREF="HOWTOBUILD.HTML">Build</A></H3>
+
+<P>This is a step-by-step guide to turning a Tcl/Tk program into a <B>single file
+executable</B> with the Tcl 9 tclkit. The procedure is nearly the same as with the 8.x
+tclkits; the difference is the last step, which <B>does not use sdx</B>.</P>
+
+<H3><A NAME="diff">What is different from 8.x</A></H3>
+
+<P>An 8.x tclkit appends a Metakit database to the executable and mounts it through tclvfs.
+Tcl 9 has <B>zipfs</B> in the core, so the Tcl 9 tclkit appends an ordinary <B>zip archive</B>
+instead. Metakit, vlerq and tclvfs are not part of it.</P>
+
+<TABLE class="grid">
+<TR><TH>&nbsp;</TH><TH>8.4 / 8.5 / 8.6</TH><TH>9.x</TH></TR>
+<TR><TD>Storage format</TD><TD>Metakit (.kit)</TD><TD>zip (.kit / .zip)</TD></TR>
+<TR><TD>Wrapping tool</TD><TD><code>tclkit sdx.kit wrap ...</code></TD><TD><code>tclkit -wrap ...</code> (built in)</TD></TR>
+<TR><TD>Path inside the executable</TD><TD>the executable itself is the directory</TD><TD><code>//zipfs:/app</code></TD></TR>
+<TR><TD><code>package require starkit</code></TD><TD>yes</TD><TD>yes (for compatibility)</TD></TR>
+<TR><TD><code>vfs::*</code>, <code>Mk4tcl</code>, <code>vlerq</code></TD><TD>yes</TD><TD>no</TD></TR>
+<TR><TD>Separate copy of the runtime</TD><TD>required (runtime.exe)</TD><TD>not needed</TD></TR>
+</TABLE>
+
+<P class="note">A Metakit based <code>.kit</code> file made for 8.x, <code>sdx.kit</code> included, cannot be
+run by the Tcl 9 tclkit. Wrap the application again from its source directory (<code>*.vfs</code>).</P>
+
+<H3><A NAME="files">The files</A></H3>
+
+<TABLE class="grid">
+<TR><TH>Package</TH><TH>File</TH><TH>Contents</TH></TR>
+<TR><TD rowspan="2">tclkit-large-9.x</TD><TD><code>tclkit-cli.exe</code></TD>
+    <TD>Console version. Thread, itcl and sqlite3 linked in. All encodings, message catalogs
+        and time zone data.</TD></TR>
+<TR><TD><code>tclkit-gui.exe</code></TD><TD>The same plus Tk linked in; no console window.</TD></TR>
+<TR><TD rowspan="2">tclkit-small-9.x</TD><TD><code>tclkit-cli.exe</code></TD>
+    <TD>Console version. Basic set of encodings, no additional extensions.</TD></TR>
+<TR><TD><code>tclkit-dyn.exe</code></TD><TD>Console version with Tk inside as a shared library, loaded on
+        <code>package require Tk</code>.</TD></TR>
+</TABLE>
+
+<P>The session below assumes that <code>tclkit-cli.exe</code> was renamed to <code>tclkit.exe</code>.
+The sample application, <code>demo.exe</code>, prints the sum of the numbers given on the command
+line, using a package called <code>adder</code>.</P>
+
+<H3><A NAME="step1">Step 1: create the directory layout</A></H3>
+
+<P>The layout is the one used with 8.x. The top-level directory may have any name;
+<code>demo.vfs</code> follows the usual convention.</P>
+
+<PRE>D:\Temp&gt; mkdir demo.vfs
+D:\Temp&gt; mkdir demo.vfs\lib
+D:\Temp&gt; mkdir demo.vfs\lib\adder
+D:\Temp&gt; mkdir demo.vfs\app</PRE>
+
+<H3><A NAME="step2">Step 2: copy any required packages</A></H3>
+
+<P>Packages go below the <code>lib</code> subdirectory.</P>
+
+<PRE># File: demo.vfs/lib/adder/adder.tcl
+proc add args {
+    return [tcl::mathop::+ {*}$args]
+}
+package provide adder 1.0</PRE>
+
+<PRE># File: demo.vfs/lib/adder/pkgIndex.tcl
+package ifneeded adder 1.0 [list source [file join $dir adder.tcl]]</PRE>
+
+<H3><A NAME="step3">Step 3: add your application files</A></H3>
+
+<PRE># File: demo.vfs/app/demo.tcl
+package require adder
+puts "The sum is [add {*}$::argv]"</PRE>
+
+<H3><A NAME="step4">Step 4: create the main script</A></H3>
+
+<P>The startup script must be called <code>main.tcl</code> and sit at the top level. What you
+used with 8.x works unchanged.</P>
+
+<PRE># File: demo.vfs/main.tcl
+package require starkit
+starkit::startup
+source [file join $starkit::topdir app demo.tcl]</PRE>
+
+<P><code>starkit::startup</code> sets <code>$starkit::topdir</code> and adds the <code>lib</code> directory to
+<code>auto_path</code>. Its result tells how the application was started:</P>
+
+<DL class="keylist">
+<DT>starpack</DT><DD>from the main.tcl inside the executable (<code>demo.exe</code>)</DD>
+<DT>starkit</DT><DD>from a zip based kit file (<code>tclkit demo.kit</code>)</DD>
+<DT>unwrapped</DT><DD>from the plain directory (<code>tclkit demo.vfs/main.tcl</code>)</DD>
+<DT>sourced</DT><DD>sourced by another script</DD>
+</DL>
+<P style="clear: both">&nbsp;</P>
+
+<H3><A NAME="step5">Step 5: build the executable</A></H3>
+
+<P>Instead of sdx, use the <code>-wrap</code> option built into the tclkit. There is no need to
+make a copy of the runtime first, nor to rename the result afterwards.</P>
+
+<PRE>D:\Temp&gt; tclkit -wrap demo.exe demo.vfs
+demo.exe (2571145 bytes)
+
+D:\Temp&gt; demo 1 2 3
+The sum is 6</PRE>
+
+<P>The executable runs on any system by just copying it. It needs neither an installed Tcl
+nor any other supporting files.</P>
+
+<P>For a GUI application, name a runtime that includes Tk with <code>-runtime</code>. The wrapping
+itself is still done by the console tclkit.</P>
+
+<PRE>D:\Temp&gt; tclkit -wrap demo.exe demo.vfs -runtime tclkit-gui.exe</PRE>
+
+<H3><A NAME="kit">Building a kit file</A></H3>
+
+<P>If the name of the target ends in <code>.kit</code>, <code>.zkit</code> or <code>.zip</code>, the result is a
+zip archive with just the application and no runtime. Run it with a tclkit.</P>
+
+<PRE>D:\Temp&gt; tclkit -wrap demo.kit demo.vfs
+demo.kit (751 bytes)
+
+D:\Temp&gt; tclkit demo.kit 1 2 3
+The sum is 6</PRE>
+
+<P>A kit file is a plain zip archive, so any archiver can create or unpack one. Stay with
+ordinary deflate compression: zip64, strong encryption and other methods such as bzip2 are
+not supported by Tcl.</P>
+
+<H3><A NAME="unwrapped">Running without wrapping</A></H3>
+
+<P>During development there is no need to wrap at all; run main.tcl directly.</P>
+
+<PRE>D:\Temp&gt; tclkit demo.vfs\main.tcl 1 2 3
+The sum is 6</PRE>
+
+<H3><A NAME="vars">Variables and commands worth knowing</A></H3>
+
+<DL class="keylist">
+<DT>$starkit::topdir</DT><DD>Top-level directory of the application: <code>//zipfs:/app</code> in an
+    executable, <code>//zipfs:/kit/<I>name</I></code> for a kit file.</DD>
+<DT>$::tcl::kitpath</DT><DD>Path of the tclkit executable, as in 8.x.</DD>
+<DT>$::tclkit::archive</DT><DD>Path of the kit file, when started from one.</DD>
+<DT>zipfs list</DT><DD>Lists every file in the mounted archives.</DD>
+<DT>zipfs mount <I>file</I> <I>mountpoint</I></DT><DD>Mounts another zip file.</DD>
+<DT>zipfs mkzip / mkimg</DT><DD>The low level commands of Tcl 9. <code>zipfs mkimg</code> does not add
+    the Tcl library of the runtime by itself; <code>-wrap</code> does, so prefer <code>-wrap</code>.</DD>
+</DL>
+<P style="clear: both">&nbsp;</P>
+
+<H3><A NAME="notes">Notes for those coming from 8.x</A></H3>
+
+<UL>
+<LI>Files inside the executable are <B>read-only</B>. New files cannot be created, and a change
+    to an existing file stays in memory and is not saved. Keep settings and other data outside
+    the executable, for instance next to it
+    (<code>[file dirname [info nameofexecutable]]</code>) or in the user's folder.</LI>
+<LI>Paths inside an archive are <B>case-sensitive</B>, on Windows too.</LI>
+<LI>Code that uses <code>vfs::mk4</code>, <code>vfs::zip</code>, <code>Mk4tcl</code> or <code>vlerq</code> directly
+    has to be changed to the <code>zipfs</code> command.</LI>
+<LI>A DLL extension inside the archive can be loaded with <code>load</code>; Tcl copies it to a
+    temporary directory first. The extension has to be <B>built for Tcl 9</B>: a DLL made for
+    8.x does not load.</LI>
+<LI>itcl is version <B>4.x</B>, not 3.x (large package).</LI>
+<LI>For the changes of Tcl 9 itself, such as the stricter handling of encodings and the
+    removal of the automatic <code>~</code> expansion in file names, see the
+    <A HREF="https://www.tcl-lang.org/software/tcltk/9.0.html">Tcl 9.0 release notes</A>.</LI>
+</UL>
+
+<div class="copy">tclkit for Tcl 9 - zipfs based single file runtime</div>
+</div></BODY></HTML>

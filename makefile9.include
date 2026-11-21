@@ -1,0 +1,118 @@
+# -*- Makefile -*-
+#
+#	Tcl 9 flavour of the tclkit build. Included from the Makefile that
+#	config.sh generates for a 9.x build directory.
+#
+#	Tcl 9 has zipfs in the core: the script library is a zip archive
+#	appended to the executable, mounted at //zipfs:/app. So there is no
+#	Metakit, vlerq or tclvfs here; we build static Tcl (and Tk), link
+#	our own tclsh/wish with kitInit9.c and attach a tailored archive.
+#
+#	NOTE: this file requires GNU Make.
+#
+
+OUTDIR  = $(shell pwd)/build
+TCLDIR  = --with-tcl=$(OUTDIR)/tcl --prefix=$(OUTDIR) --exec-prefix=$(OUTDIR)
+STRIP  ?= strip
+
+# A build area that failed half-way is moved aside, so that the next run
+# starts it afresh instead of taking the existing directory for a finished one.
+FAILED = { cd $(OUTDIR) && rm -rf $(@F).failed && mv $(@F) $(@F).failed; exit 1; }
+CC     ?= gcc
+EXE    ?=
+SO     ?= .so
+PKGS   ?=
+KITFLAGS ?=
+
+# static extensions: PKGS is a subset of "thread itcl sqlite"
+PKGDIRS  = $(addprefix build/,$(PKGS))
+PKGDEFS  = $(foreach p,$(PKGS),-DKIT_INCLUDES_$(shell echo $(p) | tr a-z A-Z))
+PKGLIBS  = $(foreach p,$(PKGS),build/$(p)/*.a)
+
+INCS     = -Ibuild/tcl -I../tcl/generic -I../tcl/$(PLAT)
+TKINCS   = -Ibuild/tk -I../tk/generic -I../tk/$(PLAT) -I../tk/xlib
+DEFS     = -DSTATIC_BUILD=1 -DTCL_USE_STATIC_PACKAGES=1 $(UNICODE_DEFS) \
+	   $(PKGDEFS) $(KITFLAGS)
+
+# script used to fill the archive; run by the freshly linked kit-cli with
+# the library taken straight from the source tree.
+SETUPVFS = TCL_LIBRARY=../tcl/library ./kit-cli$(EXE) ../../setupvfs9.tcl
+VFSDEPS  = ../../setupvfs9.tcl ../../files/starkit9.tcl ../../files/wrap9.tcl
+
+tclkit-cli$(EXE): kit-cli$(EXE) $(VFSDEPS)
+	$(SETUPVFS) $(KIT_OPTS) $@ kit-cli$(EXE) cli
+	./$@ ../../validate9.tcl
+
+tclkit-gui$(EXE): kit-cli$(EXE) kit-gui$(EXE) $(VFSDEPS)
+	$(SETUPVFS) $(KIT_OPTS) $@ kit-gui$(EXE) gui
+
+tclkit-dyn$(EXE): kit-cli$(EXE) build/tkdyn $(VFSDEPS)
+	$(SETUPVFS) $(KIT_OPTS) $@ kit-cli$(EXE) dyn
+	./$@ ../../validate9.tcl
+
+kit-cli$(EXE): build/tcl $(PKGDIRS) ../../kitInit9.c Makefile
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) -DTCL_LOCAL_APPINIT=TclKit_AppInit \
+	  -c ../tcl/$(PLAT)/tclAppInit.c -o build/tclAppInit.o
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) -c ../../kitInit9.c -o build/kitInit9-cli.o
+	. build/tcl/tclConfig.sh && \
+	$(CC) -o $@ $(CFLAGS) build/tclAppInit.o build/kitInit9-cli.o $(CLIRES) \
+	  $(PKGLIBS) $(TCLLIBS) $$TCL_LIBS $(LDFLAGS) $(CLI_OPTS)
+	$(STRIP) $(LDSTRIP) $@
+
+kit-gui$(EXE): build/tcl build/tk $(PKGDIRS) ../../kitInit9.c Makefile
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) $(TKINCS) \
+	  -DTK_LOCAL_APPINIT=TclKit_AppInit \
+	  -c ../tk/$(PLAT)/$(TKMAIN) -o build/tkAppInit.o
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) $(TKINCS) -DKIT_INCLUDES_TK \
+	  -c ../../kitInit9.c -o build/kitInit9-gui.o
+	. build/tk/tkConfig.sh && \
+	$(CC) -o $@ $(CFLAGS) build/tkAppInit.o build/kitInit9-gui.o $(GUIRES) \
+	  $(PKGLIBS) $(TKLIBS) $(TCLLIBS) $$TK_LIBS $(LDFLAGS) $(GUI_OPTS)
+	$(STRIP) $(LDSTRIP) $@
+
+build/tcl:
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh ../../../tcl/$(PLAT)/configure --disable-shared $(TCL_OPTS) \
+	    --prefix=$(OUTDIR) --exec-prefix=$(OUTDIR) && \
+	  $(MAKE) binaries || $(FAILED)
+
+build/tk: build/tcl
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh ../../../tk/$(PLAT)/configure --disable-shared $(TCLDIR) $(TK_OPTS) && \
+	  $(MAKE) binaries || $(FAILED)
+
+# Tk as a shared library, loaded from inside the archive by tclkit-dyn.
+# Only the library itself is built: the stock wish cannot be linked against
+# a static Tcl, and is not needed.
+build/tkdyn: build/tcl
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh ../../../tk/$(PLAT)/configure --enable-shared $(TCLDIR) $(TKDYN_OPTS) && \
+	  { $(MAKE) -k binaries >build.log 2>&1 || true; } && \
+	  ls *tk*$(SO) || $(FAILED)
+
+# Extensions bundled with the Tcl sources (pkgs/), built as static libraries.
+build/thread: build/tcl
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh `ls -d ../../../tcl/pkgs/thread*/configure | tail -1` \
+	    --disable-shared $(TCLDIR) $(PKG_OPTS) && \
+	  $(MAKE) binaries || $(FAILED)
+
+build/itcl: build/tcl
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh `ls -d ../../../tcl/pkgs/itcl*/configure | tail -1` \
+	    --disable-shared $(TCLDIR) $(PKG_OPTS) && \
+	  $(MAKE) binaries || $(FAILED)
+
+build/sqlite: build/tcl
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	  sh `ls -d ../../../tcl/pkgs/sqlite*/configure | tail -1` \
+	    --disable-shared $(TCLDIR) $(PKG_OPTS) && \
+	  $(MAKE) binaries || $(FAILED)
+
+clean:
+	rm -rf build kit-cli$(EXE) kit-gui$(EXE)
+
+distclean: clean
+	rm -f tclkit-cli$(EXE) tclkit-dyn$(EXE) tclkit-gui$(EXE)
+
+.PHONY: all clean distclean

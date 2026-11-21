@@ -217,7 +217,7 @@ if {$encOpt} {
     #  Load the basic encodings set...
     foreach e {ascii cp1250 cp1251 cp1252 cp1253 cp1254 cp1255 cp1256 cp1257
         cp1258 cp437 cp737 cp775 cp850 cp852 cp855 cp857 cp860 cp861 cp862
-        cp863 cp864 cp865 cp866 cp869 cp874 cp932 
+        cp863 cp864 cp865 cp866 cp869 cp874 cp932 cp949 euc-kr
         iso2022 iso2022-jp iso2022-kr iso8859-1 iso8859-10 iso8859-13
         iso8859-14 iso8859-15 iso8859-16 iso8859-2 iso8859-3 iso8859-4
         iso8859-5 iso8859-6 iso8859-7 iso8859-8 iso8859-9 jis0201

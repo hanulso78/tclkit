@@ -1,0 +1,144 @@
+/* tclkit documents: colors of the classic tcltk.co.kr theme (navy) */
+
+body, div, p, th, td, li, dd, ul, ol, dl, dt, blockquote {
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+
+body {
+    font-size:         12px;
+    line-height:       1.35;
+    color:             #D0D0D0;
+    background-color:  #404860;
+    margin:            0px;
+    padding:           0.5em 1em 1em 1em;
+}
+
+a {
+    font-weight:       bold;
+    text-decoration:   none;
+    color:             #FFFFFF;
+}
+a:hover { color: #E0E080; }
+
+b { color: #FFFFFF; }
+i { color: #E0E0E0; }
+
+pre, code { font-family: 'Courier New', Courier, monospace; }
+
+pre {
+    color:             #FFFFFF;
+    background-color:  #383F54;
+    border-left:       1px solid #303648;
+    border-top:        1px solid #303648;
+    border-right:      1px solid #606C90;
+    border-bottom:     1px solid #606C90;
+    padding:           0.8em 1em;
+    overflow:          auto;
+}
+
+h1, h2, h3, h4 {
+    font-family:       Verdana, Arial, Helvetica, sans-serif;
+    font-weight:       bold;
+    padding-left:      0.6em;
+    margin-top:        1em;
+}
+
+h1 {
+    font-size:         21pt;
+    color:             #FFFFFF;
+}
+
+/* page title bar: raised like the site's menu cells */
+h2 {
+    font-size:         14px;
+    color:             #FFFFFF;
+    background-color:  #303648;
+    border-left:       1px solid #606C90;
+    border-top:        1px solid #606C90;
+    border-right:      1px solid #202430;
+    border-bottom:     1px solid #202430;
+    padding:           4px 0.8em 5px 0.8em;
+    margin-top:        0.4em;
+}
+h2 a { color: #FFFFFF; }
+h2 small { color: #9094A0; }
+
+/* section headings: yellow like the site's legends, over an etched line */
+h3, h4 {
+    color:             #E0E080;
+    border-top:        1px solid #303648;
+    border-bottom:     1px solid #606C90;
+    background-color:  #48516C;
+    padding-top:       2px;
+    padding-bottom:    3px;
+}
+h3 { font-size: 12px; }
+h4 { font-size: 11px; background-color: #444D66; }
+h3 a, h4 a { color: #E0E080; }
+
+/* navigation line under the title */
+h3.nav {
+    background-color:  transparent;
+    border:            0px;
+    font-weight:       normal;
+    margin-top:        0.3em;
+}
+h3.nav a { color: #FFFFFF; }
+
+.keylist dt, .arguments dt {
+    width:             20em;
+    float:             left;
+    padding:           2px;
+    border-top:        1px solid #606C90;
+}
+.keylist dt { font-weight: bold; color: #FFFFFF; }
+.keylist dd, .arguments dd {
+    margin-left:       20em;
+    padding:           2px;
+    border-top:        1px solid #606C90;
+}
+
+table td { color: #D0D0D0; padding: 1px 12px 1px 0; }
+
+small { color: #9094A0; }
+small a { font-weight: normal; }
+
+.copy {
+    color:             #9094A0;
+    background-color:  #303648;
+    white-space:       pre;
+    font-size:         80%;
+    border-top:        1px solid #606C90;
+    margin-top:        2em;
+    padding:           4px 0.8em;
+}
+
+/* the gallery picture on a manual page */
+img.shot { max-width: 100%; border: 1px solid #50587A; border-radius: 4px; margin: 4px 0 8px 0; }
+
+/* --- additions for the tclkit how-to pages --- */
+
+/* keep long text readable on wide screens */
+main.container, div.page { max-width: 62em; }
+
+p code, li code, dd code, td code { color: #FFFFFF; }
+
+/* publication line of the 8.x how-to */
+.page-info { color: #9094A0; padding-left: 0.6em; margin-bottom: 1em; }
+
+/* notes and warnings */
+p.note {
+    color:             #E0E0E0;
+    background-color:  #48516C;
+    border-left:       3px solid #E0E080;
+    padding:           5px 0.8em;
+}
+
+table.grid { border-collapse: collapse; margin: 0.5em 0 1em 0; }
+table.grid th, table.grid td {
+    border:            1px solid #606C90;
+    padding:           3px 10px;
+    text-align:        left;
+    vertical-align:    top;
+}
+table.grid th { color: #FFFFFF; background-color: #303648; }

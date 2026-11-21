@@ -1,0 +1,18 @@
+# downloaded source tarballs and packaged results
+/dl/
+/dist/
+
+# unpacked Tcl/Tk sources
+/8.[0-9]/tcl/
+/8.[0-9]/tk/
+/9.[0-9]/tcl/
+/9.[0-9]/tk/
+
+# per-configuration build areas (keep the empty.txt placeholders)
+/[89].[0-9]/kit-*/*
+/[89].[0-9]/base-*/*
+!/[89].[0-9]/kit-*/empty.txt
+
+# stray objects from in-tree zlib builds
+*.o
+*.obj

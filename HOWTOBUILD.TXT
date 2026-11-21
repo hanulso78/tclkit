@@ -1,35 +1,33 @@
 -------------------------------------------------------------------
-Build on MSYS2/MinGW 4.6.1 
+Build on MSYS2 / MinGW-w64 (MINGW64 shell)
 -------------------------------------------------------------------
 
-kitgen 빌드스크립트 위치:
-	http://github.com/patthoyts/kitgen/
+The full description is in HOWTOBUILD.HTML. In short:
 
-0. makefile.include 파일의 "SO ?=.so" 를 "SO ?=.dll" 를 변경.
-1. 8.6 디렉토리를 만든다.
-2. 8.6 디렉토리내에 kit-large, kit-small 디렉토리를 만든다.
-3. 8.6 디렉토리내에 tcl, tk 소스코드를 푼다.
-4. 디렉토리 이름을 변경한다.
-	tcl8.6.10 -> tcl
-	tk8.6.10 -> tk
+0. Tools:
+	pacman -S --needed mingw-w64-x86_64-gcc make patch p7zip zip curl
 
-+- 8.6
-   +- kit-large
-   +- kit-small
-   +- tcl
-   +- tk
+1. Everything (8.4.20, 8.5.19, 8.6.18, 9.0.4; large and small):
+	sh mkdist.sh
 
-# --- large 빌드 ----
-5. sh config.sh 8.6/kit-large cli gui mk aqua univ thread allenc allmsgs tzdata
-6. cd 8.6/kit-large && make
-	- kit-large 안에 tclkit-cli.exe, tclkit-gui.exe 가 생성됨.
-	- upx -d tclkit-cli.exe tclkit-gui.exe tclkitsh.exe
+   Sources are downloaded to dl/ and unpacked to <root>/tcl, <root>/tk,
+   the results end up in dist/:
+	tclkit-large-<version>-win-amd64.7z
+	tclkit-small-<version>-win-amd64.7z
 
-# --- small 빌드 ----
-7. sh config.sh 8.6/kit-small cli dyn mk
-8. cd 8.6/kit-small && make
-	- kit-small 안에 tclkit-cli.exe, tclkit-dyn.exe 가 생성됨.
-	- upx -d tclkit-cli.exe tclkit-dyn.exe tclkitsh.exe
+2. Selected releases, clean rebuild, number of jobs:
+	sh mkdist.sh 8.6.18 9.0.4
+	sh mkdist.sh -c
+	sh mkdist.sh -j 4
 
-# -------------------
-마지막으로 필요한 피일들을 복사한다.
+3. A single configuration by hand:
+	sh fetch.sh 8.6 8.6.18
+	sh config.sh 8.6/kit-large cli gui mk thread allenc allmsgs tzdata
+	cd 8.6/kit-large && make
+
+   large, 8.x:  cli gui mk thread allenc allmsgs tzdata
+   small, 8.x:  cli dyn mk
+   large, 9.x:  cli gui thread itcl sqlite allenc allmsgs tzdata
+   small, 9.x:  cli dyn
+
+Nothing has to be edited by hand any more (SO, directory names, upx).

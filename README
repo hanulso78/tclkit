@@ -4,6 +4,47 @@ Download pre-built files
 https://tcl.oscc.kr/?dir=tclkit
 
 
+Documents
+=========
+
+  HOWTOBUILD.HTML   building and packaging the kits (MSYS2 / MinGW-w64)
+  HOWTOUSE.HTML     making a single file application, Tcl 8.4 / 8.5 / 8.6
+  HOWTOUSE9.HTML    making a single file application, Tcl 9
+
+
+Building everything
+===================
+
+    sh mkdist.sh
+
+downloads the Tcl/Tk sources for 8.4, 8.5, 8.6 and 9.0, builds a "large" and
+a "small" set of kits for each and packs them into dist/, named like the
+files in the download area:
+
+    dist/tclkit-large-<version>-win-amd64.7z
+    dist/tclkit-small-<version>-win-amd64.7z
+
+The pieces it uses can be run on their own:
+
+  * `fetch.sh <root> <version>` - download and unpack Tcl/Tk into <root>/tcl
+    and <root>/tk, then apply the patches in patches/
+  * `config.sh <root>/kit-<name> <options>` - set up one build configuration
+  * `make` in that directory - build it
+
+The 8.x kits are the classic ones described in the rest of this file. For
+Tcl 9, config.sh generates a Makefile that includes makefile9.include
+instead: Tcl 9 has zipfs in the core, so those kits carry a zip archive and
+need no Metakit, vlerq or tclvfs. Options for a 9.x configuration are
+
+  * `cli`, `gui`, `dyn` - which executables to build, as below
+  * `thread`, `itcl`, `sqlite` - extensions from the pkgs/ directory of Tcl,
+    linked in statically
+  * `allenc`, `allmsgs`, `tzdata`, `sym` - as below
+
+A Tcl 9 kit runs zip based kit files (`tclkit app.kit`) and wraps
+applications by itself (`tclkit -wrap app.exe app.vfs`); see HOWTOUSE9.HTML.
+
+
 Quick start
 ===========
 

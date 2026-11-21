@@ -15,7 +15,7 @@ if test ! -d $root
   then echo "error: directory '$root' does not exist"; exit 1; fi
 
 for v in allenc allmsgs aqua b64 cli dyn gui ppc mk \
-          gcov gprof sym thread tzdata univ x86
+          gcov gprof sym thread tzdata univ x86 itcl sqlite
   do eval $v=0; done
 
 while test $# != 0
@@ -33,6 +33,83 @@ echo "Configuring $make for $mach."
 mkdir -p $path
 
 case $cli-$dyn-$gui in 0-0-0) cli=1 dyn=1 gui=1 ;; esac
+
+# Tcl 9 and later: zipfs based kits, see makefile9.include. No Metakit, vlerq
+# or tclvfs; "thread", "itcl" and "sqlite" select the extensions bundled with
+# the Tcl sources (pkgs/) which get linked in statically.
+case `basename $root` in 8*) ;; *)
+  ( echo "# Generated `date`:"
+    echo "#   `basename $0` $args"
+    echo
+    echo "CC         = ${CC:=gcc}"
+    case $mach in
+      MINGW*)
+        echo 'CFLAGS    += -O2 -static'
+        echo 'PLAT       = win'
+        echo 'EXE        = .exe'
+        echo 'SO         = .dll'
+        echo 'UNICODE_DEFS = -DUNICODE -D_UNICODE'
+        echo 'TCLLIBS    = $(wildcard build/tcl/libtcl[0-9][0-9].a) build/tcl/libtclstub.a'
+        echo 'TKLIBS     = $(wildcard build/tk/libtcl9tk[0-9][0-9].a build/tk/libtk[0-9][0-9].a)'
+        echo 'CLIRES     = build/tcl/tclsh.res.o'
+        echo 'GUIRES     = build/tk/wish.res.o'
+        echo 'CLI_OPTS   = -mconsole -municode'
+        echo 'GUI_OPTS   = -mwindows -municode'
+        echo 'TKMAIN     = winMain.c'
+        ;;
+      Darwin)
+        echo 'CFLAGS    += -O2'
+        echo 'PLAT       = unix'
+        echo 'LDSTRIP    = -x'
+        echo 'SO         = .dylib'
+        echo 'TCLLIBS    = $(wildcard build/tcl/libtcl9*.a) build/tcl/libtclstub.a'
+        echo 'TKLIBS     = $(wildcard build/tk/libtcl9tk*.a build/tk/libtk9*.a)'
+        echo 'TKMAIN     = tkAppInit.c'
+        case $aqua in 1)
+          echo "TK_OPTS    = --enable-aqua"
+          echo "TKDYN_OPTS = --enable-aqua" ;;
+        esac
+        ;;
+      *)
+        echo 'CFLAGS    += -O2'
+        echo 'PLAT       = unix'
+        echo 'TCLLIBS    = $(wildcard build/tcl/libtcl9*.a) build/tcl/libtclstub.a'
+        echo 'TKLIBS     = $(wildcard build/tk/libtcl9tk*.a build/tk/libtk9*.a)'
+        echo 'TKMAIN     = tkAppInit.c'
+        ;;
+    esac
+
+    pkgs=
+    case $thread in 1) pkgs="$pkgs thread" ;; esac
+    case $itcl   in 1) pkgs="$pkgs itcl" ;; esac
+    case $sqlite in 1) pkgs="$pkgs sqlite" ;; esac
+    echo "PKGS       =$pkgs"
+
+    case $allenc  in 1) kitopts="$kitopts -e" ;; esac
+    case $allmsgs in 1) kitopts="$kitopts -m" ;; esac
+    case $tzdata  in 1) kitopts="$kitopts -z" ;; esac
+    echo "KIT_OPTS   =$kitopts"
+
+    case $sym in 1)
+      echo "STRIP      = :"
+      echo "TCL_OPTS  += --enable-symbols"
+      echo "TK_OPTS   += --enable-symbols"
+      echo "TKDYN_OPTS += --enable-symbols"
+      echo "PKG_OPTS  += --enable-symbols" ;;
+    esac
+
+    targets=
+    case $cli in 1) targets="$targets tclkit-cli\$(EXE)" ;; esac
+    case $dyn in 1) targets="$targets tclkit-dyn\$(EXE)" ;; esac
+    case $gui in 1) targets="$targets tclkit-gui\$(EXE)" ;; esac
+    echo
+    echo "all:$targets"
+    echo
+    echo "include ../../makefile9.include"
+  ) >$make
+  case $verbose in 1) cat $make ;; esac
+  exit 0 ;;
+esac
 
 ( echo "# Generated `date`:"
   echo "#   `basename $0` $args"
@@ -96,6 +173,13 @@ case $cli-$dyn-$gui in 0-0-0) cli=1 dyn=1 gui=1 ;; esac
       echo "CC         = ${CC:=gcc}"
       echo 'CFLAGS    += -I'`pwd`'/'$root'/tcl/win -I'`pwd`'/'$root'/tk/win'
       echo 'CFLAGS    += -static-libgcc -static-libstdc++ -static'
+      # gcc 14+ turns implicit declarations, int/pointer mismatches etc. into
+      # hard errors and gcc 15+ defaults to C23. The Tcl 8.x era sources (and
+      # their autoconf tests) need the older, more permissive dialect.
+      gccmajor=`$CC -dumpversion 2>/dev/null | cut -d. -f1`
+      if [ "${gccmajor:-0}" -ge 14 ]; then
+          echo 'CFLAGS    += -std=gnu17 -fpermissive -w'
+      fi
       echo 'LDFLAGS    = build/lib/dde1*/*tcldde1*.a build/lib/reg1*/*tclreg1*.a'
       [ $root != "8.4" ]   && echo 'LDFLAGS   += -lws2_32'
       if [ ${root#8.} -ge 6 ]; then
@@ -110,6 +194,9 @@ case $cli-$dyn-$gui in 0-0-0) cli=1 dyn=1 gui=1 ;; esac
       echo 'DYNOBJ     = $(CLIOBJ) $(OUTDIR)/tkdyn/wish.res.o'
       echo 'GUIOBJ     = $(OBJ) $(OUTDIR)/winMain.o $(OUTDIR)/tclkit.res.o'
       echo 'PRIV       = install-private-headers'
+      # Tk is built against a static Tcl and so sees STATIC_BUILD, which
+      # leaves its API without dllexport: export everything explicitly.
+      echo 'TKDYN_CFLAGS = -Wl,--export-all-symbols'
       echo 'EXE        = .exe'
       [ -x $upx ] && echo "UPX        = $upx"
       plat=win
@@ -158,6 +245,7 @@ case $cli-$dyn-$gui in 0-0-0) cli=1 dyn=1 gui=1 ;; esac
 	       echo "LDFLAGS   += -lpthread" ;;
        esac
        echo "TCL_OPTS   = --enable-threads"
+       echo "KITDEPS    = build/threaddyn"
        echo "KIT_OPTS   = -t$kitopts" ;;
     0) echo "KIT_OPTS   =$kitopts" ;;
   esac
@@ -195,7 +283,10 @@ case $cli-$dyn-$gui in 0-0-0) cli=1 dyn=1 gui=1 ;; esac
   case $gui in 1) targets="$targets tclkit-gui" ;; esac
   case $mk in 
     1)  case $cli in 1) targets="$targets tclkitsh" ;; esac
-        case $dyn in 1) targets="$targets tclkit" ;; esac
+        # On Windows the old-style tclkit has Tk linked in statically, which
+        # cannot share a build area with the shared Tk of tclkit-dyn: it is
+        # only built together with "gui" there.
+        case $dyn-$plat in 1-unix) targets="$targets tclkit" ;; esac
         case $gui in 1) targets="$targets tclkit" ;; esac
         ;; 
   esac

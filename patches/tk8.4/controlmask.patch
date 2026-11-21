@@ -1,0 +1,17 @@
+--- a/xlib/X11/X.h
++++ b/xlib/X11/X.h
+@@ -179,7 +179,13 @@
+ 
+ #define ShiftMask		(1<<0)
+ #define LockMask		(1<<1)
+-#define ControlMask		(1<<2)
++#ifndef _WIN32
++#   define ControlMask		(1<<2)
++#else
++/* newer Win32 headers have a struct member of this name: use an enum */
++#   define ControlMask		ControlMask
++enum { ControlMask = (1<<2) };
++#endif
+ #define Mod1Mask		(1<<3)
+ #define Mod2Mask		(1<<4)
+ #define Mod3Mask		(1<<5)

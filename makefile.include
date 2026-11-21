@@ -8,6 +8,8 @@
 
 EXTDIR = ../../../../8.x
 STATIC = --disable-shared
+# Tcl 8.6 ships a matching Thread extension in pkgs/, older ones use 8.x/thread
+THREADSRC = $(firstword $(wildcard ../tcl/pkgs/thread2*) ../../8.x/thread)
 OUTDIR = $(shell pwd)/build
 OBJ    = $(OUTDIR)/pwb$O $(OUTDIR)/rechan$O $(OUTDIR)/zlib$O
 CLIOBJ ?= $(OBJ) $(OUTDIR)/tclAppInit$O
@@ -16,6 +18,10 @@ GUIOBJ ?= $(CLIOBJ)
 KITFLAGS ?=
 TCLDIR = --with-tcl=../lib --prefix=$(OUTDIR) --exec-prefix=$(OUTDIR)
 STRIP ?= strip
+
+# A build area that failed half-way is moved aside, so that the next run
+# starts it afresh instead of taking the existing directory for a finished one.
+FAILED = { cd $(OUTDIR) && rm -rf $(@F).failed && mv $(@F) $(@F).failed; exit 1; }
 UPX   ?= :
 O     ?=.o
 A     ?=.a
@@ -53,47 +59,52 @@ kit-gui$(EXE): build/tcl build/tk build/tclvfs build/vqtcl build/zlib $(GUIOBJ)
 	  -DKIT_INCLUDES_TK build/lib/libtk8*$A \
 	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(GUI_OPTS)
 
-build/files:
-	mkdir -p $@ && cd $@ && cp -p ../../../../files/* .
+build/files: | $(KITDEPS)
+	mkdir -p $@ && cd $@ && cp -p ../../../../files/* . || $(FAILED)
 
 build/tcl:
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh ../../../tcl/$(PLAT)/configure $(STATIC) $(TCL_OPTS) \
 	    --prefix=$(OUTDIR) --exec-prefix=$(OUTDIR) && \
-	  $(MAKE) install-binaries install-libraries $(PRIV)
+	  $(MAKE) binaries libraries && \
+	  $(MAKE) -j1 install-binaries install-libraries $(PRIV) && \
+	  if grep -q '^install-headers:' Makefile; then $(MAKE) install-headers; fi || $(FAILED)
 
 threaded: build/threaddyn
 build/threaddyn: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
-	  sh $(EXTDIR)/thread/configure $(TCLDIR) $(THREADDYN_OPTS) && \
-	  $(MAKE) install-binaries install-libraries
+	  sh ../../$(THREADSRC)/configure $(TCLDIR) $(THREADDYN_OPTS) && \
+	  $(MAKE) binaries && $(MAKE) -j1 install-binaries install-libraries || $(FAILED)
 
 thread: build/thread
 build/thread: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
-	  sh $(EXTDIR)/thread/configure $(STATIC) $(TCLDIR) $(THREAD_OPTS) && \
-	  $(MAKE) install-binaries install-libraries
+	  sh ../../$(THREADSRC)/configure $(STATIC) $(TCLDIR) $(THREAD_OPTS) && \
+	  $(MAKE) binaries && $(MAKE) -j1 install-binaries install-libraries || $(FAILED)
 
 build/tk: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh ../../../tk/$(PLAT)/configure $(STATIC) $(TCLDIR) $(TK_OPTS) && \
-	  $(MAKE) install-binaries install-libraries $(PRIV)
+	  $(MAKE) binaries libraries && \
+	  $(MAKE) -j1 install-binaries install-libraries $(PRIV) && \
+	  if grep -q '^install-headers:' Makefile; then $(MAKE) install-headers; fi || $(FAILED)
 
 build/tkdyn: build/tcl
-	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
+	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS) $(TKDYN_CFLAGS)" && export CFLAGS && \
 	  sh ../../../tk/$(PLAT)/configure $(TCLDIR) $(TKDYN_OPTS) && \
 	  $(MAKE) binaries && $(STRIP) $(LDSTRIP) *tk8*$(SO) && \
-	  $(MAKE) install-binaries install-libraries
+	  $(MAKE) -j1 install-binaries install-libraries && \
+	  if grep -q '^install-headers:' Makefile; then $(MAKE) install-headers; fi || $(FAILED)
 
 build/tclvfs: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh $(EXTDIR)/tclvfs/configure $(STATIC) $(TCLDIR) $(VFS_OPTS) && \
-	  $(MAKE) install
+	  $(MAKE) binaries && $(MAKE) -j1 install || $(FAILED)
 
 build/vqtcl: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh $(EXTDIR)/vqtcl/configure $(STATIC) $(TCLDIR) $(VLERQ_OPTS) && \
-	  $(MAKE) install
+	  $(MAKE) binaries && $(MAKE) -j1 install || $(FAILED)
 
 build/zlib: build/tcl
 	cp -R ../../8.x/zlib/. $@
@@ -124,31 +135,31 @@ distclean: clean
 
 .PHONY: all base clean distclean threaded tidy
 
-$(OUTDIR)/pwb$O:  ../../pwb.c
+$(OUTDIR)/pwb$O:  ../../pwb.c | build/tcl
 	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include -c $<
 
-$(OUTDIR)/rechan$O: ../../rechan.c
+$(OUTDIR)/rechan$O: ../../rechan.c | build/tcl
 	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include -c $<
 
-$(OUTDIR)/zlib$O: ../../zlib.c
+$(OUTDIR)/zlib$O: ../../zlib.c | build/tcl build/zlib
 	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include -c $<
 
-$(OUTDIR)/tclAppInit$O: ../tcl/$(PLAT)/tclAppInit.c
+$(OUTDIR)/tclAppInit$O: ../tcl/$(PLAT)/tclAppInit.c | build/tcl
 	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include \
 	  -DTCL_LOCAL_APPINIT=TclKit_AppInit -c $<
 
-$(OUTDIR)/winMain$O: ../tk/$(PLAT)/winMain.c
+$(OUTDIR)/winMain$O: ../tk/$(PLAT)/winMain.c | build/tk
 	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include \
 	  -DTK_LOCAL_APPINIT=TclKit_AppInit -c $<
 
-$(OUTDIR)/tclkit.res.o: ../../tclkit.rc
+$(OUTDIR)/tclkit.res.o: ../../tclkit.rc | build/tk
 	cp $< build/tk/tclkit.rc
 	windres -o $@ --define STATIC_BUILD --define TCLKIT_WITH_TK \
 	  --define BASE_NO_TK_ICON --include build/include \
 	  --include build/tk --include ../../files --include ../tk/win/rc \
 	  build/tk/tclkit.rc
 
-$(OUTDIR)/tclkitsh.res.o: ../../tclkit.rc
+$(OUTDIR)/tclkitsh.res.o: ../../tclkit.rc | build/tcl
 	windres -o $@ --define STATIC_BUILD --include build/include \
 	  --include ../../files $<
 
@@ -177,20 +188,20 @@ tclkit$(EXE): kitsh$(EXE) build/tkdyn ../../setupvfs.tcl build/files
 endif
 
 kitsh$(EXE): build/tcl build/tclvfs build/mk build/itcl build/zlib $(CLIOBJ)
-	$(CC) -o $(OUTDIR)/kitInit$O $(CFLAGS) -DSTATIC_BUILD \
+	$(CC) -o $(OUTDIR)/kitInit-sh$O $(CFLAGS) -DSTATIC_BUILD \
 	  -DKIT_INCLUDES_ITCL $(KITFLAGS) \
 	  -Ibuild/include -c ../../kitInit.c
-	$(CXX) -o $@ $(CFLAGS) $(OUTDIR)/kitInit$O $(CLIOBJ) \
+	$(CXX) -o $@ $(CFLAGS) $(OUTDIR)/kitInit-sh$O $(CLIOBJ) \
 	  -Ibuild/include -DSTATIC_BUILD \
 	  build/lib/vfs1*/*vfs1*$A build/lib/Mk4tcl*/*Mk4tcl*$A \
 	  build/lib/itcl*/*itcl3*$A \
 	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(LDXXFLAGS)
 
 kit$(EXE): build/tcl build/tk build/tclvfs build/mk build/itcl build/zlib $(GUIOBJ)
-	$(CC) -o $(OUTDIR)/kitInit$O $(CFLAGS) -DSTATIC_BUILD \
+	$(CC) -o $(OUTDIR)/kitInit-gui$O $(CFLAGS) -DSTATIC_BUILD \
 	  -DKIT_INCLUDES_ITCL -DKIT_INCLUDES_TK $(KITFLAGS) \
 	  -Ibuild/include -c ../../kitInit.c
-	$(CXX) -o $@ $(CFLAGS) $(OUTDIR)/kitInit$O $(GUIOBJ) \
+	$(CXX) -o $@ $(CFLAGS) $(OUTDIR)/kitInit-gui$O $(GUIOBJ) \
 	  -Ibuild/include -DSTATIC_BUILD \
 	  build/lib/vfs1*/*vfs1*$A build/lib/Mk4tcl*/*Mk4tcl*$A \
 	  build/lib/libtk8*$A build/lib/itcl*/*itcl3*$A \
@@ -200,12 +211,12 @@ kit$(EXE): build/tcl build/tk build/tclvfs build/mk build/itcl build/zlib $(GUIO
 build/mk: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh $(EXTDIR)/mk/tcl/configure $(STATIC) $(TCLDIR) $(MK_OPTS) && \
-	  $(MAKE) install-binaries install-libraries
+	  $(MAKE) binaries && $(MAKE) -j1 install-binaries install-libraries || $(FAILED)
 
 build/itcl: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh $(EXTDIR)/itcl/configure $(STATIC) $(TCLDIR) $(ITCL_OPTS) && \
-	  $(MAKE) install-binaries install-libraries
+	  $(MAKE) binaries && $(MAKE) -j1 install-binaries install-libraries || $(FAILED)
 
 # end
 #-------------------------------------------------------------------------

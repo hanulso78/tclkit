@@ -1,0 +1,12 @@
+--- a/win/tclWinThrd.c
++++ b/win/tclWinThrd.c
+@@ -227,6 +227,9 @@
+ 
+     EnterCriticalSection(&joinLock);
+ 
++    *idPtr = 0; /* must initialize as Tcl_ThreadId is a pointer and
++		 * on WIN64 sizeof void* != sizeof unsigned */
++
+ #if defined(_MSC_VER) || defined(__MSVCRT__) || defined(__BORLANDC__)
+     tHandle = (HANDLE) _beginthreadex(NULL, (unsigned) stackSize,
+ 	    (Tcl_ThreadCreateProc*) TclWinThreadStart, winThreadPtr,
