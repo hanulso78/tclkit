@@ -30,8 +30,9 @@ Pre-built packages for 64-bit Windows:
 | `tclkitsh`, `tclkit` | 8.x only: the classic Metakit based pair (console / Tk), with Itcl 3.4 |
 
 On 8.x, `tclkit-*` are "Tclkit Lite", which reads kits with vlerq, while
-`tclkitsh` / `tclkit` contain the full Metakit. Use the Metakit ones to run
-`sdx`.
+`tclkitsh` / `tclkit` contain the full Metakit. `sdx` runs with either kind.
+On Linux the small 8.x archive also has `tclkit`, which loads Tk from the
+shared library inside the kit.
 
 ## Using a tclkit
 
@@ -88,6 +89,9 @@ kits for each release and packs them into `dist/`:
     dist/tclkit-large-<version>-win-amd64.7z
     dist/tclkit-small-<version>-win-amd64.7z
 
+On Linux the same command gives `tclkit-{large,small}-<version>-linux-x86_64`,
+as `.tar.gz` when there is no `7z`.
+
     sh mkdist.sh 8.6.18 9.0.4     # only these releases
     sh mkdist.sh -c               # clean rebuild
     sh mkdist.sh -j 4             # number of parallel make jobs
@@ -138,11 +142,19 @@ What `mkdist.sh` uses:
     large, 9.x:  cli gui thread itcl sqlite allenc allmsgs tzdata
     small, 9.x:  cli dyn
 
+### Linux
+
+`sh mkdist.sh` works unchanged. It needs gcc, g++, make, patch, curl and the
+development files of X11, Xft and fontconfig. All four releases have been built
+on AlmaLinux 8 (gcc 8.5, glibc 2.28), so those kits run on that glibc or newer.
+The console kits depend on libc only (libstdc++ too for the Metakit ones, zlib
+for Tcl 9); the ones with Tk linked in also need the X11, Xft and fontconfig
+libraries at run time. Tk 8.4 is built without Xft.
+
 ### Other platforms
 
-The Linux, BSD, Solaris and Mac OS X settings of the original kitgen are still
-in `config.sh`, and the Tcl 9 makefile has Unix branches, but none of that has
-been built with these changes. `Makefile.vc` is the old MSVC build of kitgen
+The BSD, Solaris and Mac OS X settings of the original kitgen are still in
+`config.sh`, but none of that has been built with these changes. `Makefile.vc` is the old MSVC build of kitgen
 for 8.x; it is unchanged and knows nothing about Tcl 9.
 
 ## Layout

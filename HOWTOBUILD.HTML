@@ -169,6 +169,11 @@ Start the <B>MSYS2 MINGW64</B> shell (not the plain MSYS one) and make sure thes
 ordinary C when Tcl 8.4 was written; <code>config.sh</code> detects gcc 14 or later and adds
 <code>-std=gnu17 -fpermissive</code> for the 8.x builds by itself.</P>
 
+<P>On <B>Linux</B> the same scripts work with gcc, g++, make, patch, curl and the development
+files of X11, Xft and fontconfig (tested on AlmaLinux 8, gcc 8.5). The archives are then named
+<code>tclkit-large-&lt;version&gt;-linux-x86_64</code> and are written as <code>.tar.gz</code>
+when there is no <code>7z</code>.</P>
+
 <H3><A NAME="quick">Everything in one step</A></H3>
 
 <PRE>$ sh mkdist.sh</PRE>

@@ -41,6 +41,9 @@ if {![catch {package require Thread}]} {
             [thread::send $tid [list package require $pkg]]
     }
     puts "thread: $r"
+    # Tcl 8.4 on unix hangs or crashes in exit while a thread is still alive
+    thread::release $tid
+    after 200
 }
 
 # check pkgconfig in 8.5+

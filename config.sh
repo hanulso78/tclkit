@@ -125,6 +125,7 @@ esac
       
       echo "LDFLAGS    = -framework CoreFoundation"
       echo "LDSTRIP    = -x"
+      echo "SO         = .dylib"
       
       case $b64-$univ-$ppc-$x86 in
         0-0-0-0) ;;
@@ -147,16 +148,34 @@ esac
     Linux)
       echo "CC         = ${CC:=gcc}"
       echo "CXX        = ${CXX:=gcc}"
-      echo "LDFLAGS    = -ldl -lm"
-      echo "LDXXFLAGS  = -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic"
-      echo "GUI_OPTS   = -L/usr/X11R6/lib -lX11 -lXss"
+      # Tcl 8.6 is threaded even when not asked for
+      echo "LDFLAGS    = -ldl -lm -lpthread"
+      # keep our own zlib private: shared libraries of the system (libpng
+      # by way of Xft) must go on using the zlib they were linked with
+      echo "LDFLAGS   += -Wl,--exclude-libs,libz.a"
+      # static extensions are built to use the stubs table
+      echo "LDFLAGS   += build/lib/libtclstub8*.a"
+      # the C++ runtime (Metakit) statically if that library is installed
+      if echo 'int main(){return 0;}' | \
+           ${CXX:-g++} -x c++ - -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic \
+             -o /dev/null 2>/dev/null; then
+          echo "LDXXFLAGS  = -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic"
+      else
+          echo "LDXXFLAGS  = -lstdc++"
+      fi
+      echo "GUI_OPTS   = -L/usr/X11R6/lib -lX11"
+      # Tk uses the screen saver extension only if its headers are there
+      if echo 'int main(void){return 0;}' | \
+           $CC -x c - -lXss -o /dev/null 2>/dev/null; then
+          echo "GUI_OPTS  += -lXss"
+      fi
       if [ $root != "8.4" ]; then
-          echo "GUI_OPTS  += -lXft -lXext"
+          echo "GUI_OPTS  += -lXft -lfontconfig -lXext"
       fi
       case $b64 in 1)
-        echo "CFLAGS     += -m64" ;; 
+        echo "CFLAGS     += -m64" ;;
       esac
-      [ -x $upx ] && echo "UPX        = $upx"
+      [ -n "$upx" ] && [ -x "$upx" ] && echo "UPX        = $upx"
       ;;
 
     *BSD)
@@ -197,6 +216,7 @@ esac
       # Tk is built against a static Tcl and so sees STATIC_BUILD, which
       # leaves its API without dllexport: export everything explicitly.
       echo 'TKDYN_CFLAGS = -Wl,--export-all-symbols'
+      echo 'SO         = .dll'
       echo 'EXE        = .exe'
       [ -x $upx ] && echo "UPX        = $upx"
       plat=win

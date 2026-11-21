@@ -14,6 +14,8 @@ The full description is in HOWTOBUILD.HTML. In short:
    the results end up in dist/:
 	tclkit-large-<version>-win-amd64.7z
 	tclkit-small-<version>-win-amd64.7z
+   On Linux (gcc, g++, make, patch, curl, X11/Xft/fontconfig headers):
+	tclkit-{large,small}-<version>-linux-x86_64.tar.gz
 
 2. Selected releases, clean rebuild, number of jobs:
 	sh mkdist.sh 8.6.18 9.0.4

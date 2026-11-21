@@ -55,7 +55,7 @@ esac
 case `uname` in
   MINGW*|MSYS*) plat=win-$arch; exe=.exe ;;
   Darwin)       plat=macosx-$arch; exe= ;;
-  *)            plat=`uname | tr A-Z a-z`-$arch; exe= ;;
+  *)            plat=`uname | tr A-Z a-z`-`echo $machine | cut -d- -f1`; exe= ;;
 esac
 
 pack() {

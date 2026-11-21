@@ -25,7 +25,7 @@ FAILED = { cd $(OUTDIR) && rm -rf $(@F).failed && mv $(@F) $(@F).failed; exit 1;
 UPX   ?= :
 O     ?=.o
 A     ?=.a
-SO    ?=.dll
+SO    ?=.so
 
 tclkit-cli$(EXE): kit-cli$(EXE) ../../setupvfs.tcl build/files
 	cp kit-cli$(EXE) $@ && $(STRIP) $@
@@ -44,20 +44,20 @@ kit-cli$(EXE): build/tcl build/tclvfs build/vqtcl build/zlib $(CLIOBJ)
 	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(CLIOBJ) \
 	  -Ibuild/include -DKIT_LITE -DSTATIC_BUILD $(KITFLAGS) \
 	  build/lib/vfs1*/*vfs1*$A build/lib/vqtcl4*/*vqtcl4*$A \
-	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS)
+	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS)
 
 kit-dyn$(EXE): build/tcl build/tclvfs build/vqtcl build/zlib build/tkdyn $(CLIOBJ)
 	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(DYNOBJ) \
 	  -Ibuild/include -DKIT_LITE -DSTATIC_BUILD $(KITFLAGS) \
 	  build/lib/vfs1*/*vfs1*$A build/lib/vqtcl4*/*vqtcl4*$A \
-	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS)
+	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS)
 
 kit-gui$(EXE): build/tcl build/tk build/tclvfs build/vqtcl build/zlib $(GUIOBJ)
 	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(GUIOBJ) \
 	  -Ibuild/include -DKIT_LITE -DSTATIC_BUILD $(KITFLAGS) \
 	  build/lib/vfs1*/*vfs1*$A build/lib/vqtcl4*/*vqtcl4*$A \
 	  -DKIT_INCLUDES_TK build/lib/libtk8*$A \
-	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(GUI_OPTS)
+	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(GUI_OPTS)
 
 build/files: | $(KITDEPS)
 	mkdir -p $@ && cd $@ && cp -p ../../../../files/* . || $(FAILED)
@@ -68,7 +68,13 @@ build/tcl:
 	    --prefix=$(OUTDIR) --exec-prefix=$(OUTDIR) && \
 	  $(MAKE) binaries libraries && \
 	  $(MAKE) -j1 install-binaries install-libraries $(PRIV) && \
-	  if grep -q '^install-headers:' Makefile; then $(MAKE) install-headers; fi || $(FAILED)
+	  for t in install-headers install-msgs install-tzdata; do \
+	    if grep -q "^$$t:" Makefile; then $(MAKE) -j1 $$t || exit 1; fi; \
+	  done || $(FAILED)
+
+# Which install target covers what differs between the releases and between
+# win/ and unix/, hence the loop above: public headers are separate in 8.6,
+# message catalogs and time zone data are separate on Unix.
 
 threaded: build/threaddyn
 build/threaddyn: build/tcl
@@ -106,15 +112,17 @@ build/vqtcl: build/tcl
 	  sh $(EXTDIR)/vqtcl/configure $(STATIC) $(TCLDIR) $(VLERQ_OPTS) && \
 	  $(MAKE) binaries && $(MAKE) -j1 install || $(FAILED)
 
+# The library stays in build/zlib and is linked by path: in build/lib it
+# would shadow the zlib of the system for everything else built here.
 build/zlib: build/tcl
 	cp -R ../../8.x/zlib/. $@
 ifeq ($(PLAT),win)
 	cd $@ && make -f win32/Makefile.gcc libz.a && \
-	cp libz.a ../lib/libz.a && \
 	cp zlib.h zconf.h ../include/
 else
-	cd $@ && CC=$(CC) CFLAGS=$(CFLAGS) sh configure && \
-	$(MAKE) install prefix=..
+	cd $@ && CC="$(CC)" CFLAGS="$(CFLAGS) -fPIC" sh configure --static && \
+	$(MAKE) libz.a && \
+	cp zlib.h zconf.h ../include/
 endif
 
 base: build/tcl build/tk
@@ -195,7 +203,7 @@ kitsh$(EXE): build/tcl build/tclvfs build/mk build/itcl build/zlib $(CLIOBJ)
 	  -Ibuild/include -DSTATIC_BUILD \
 	  build/lib/vfs1*/*vfs1*$A build/lib/Mk4tcl*/*Mk4tcl*$A \
 	  build/lib/itcl*/*itcl3*$A \
-	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(LDXXFLAGS)
+	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(LDXXFLAGS)
 
 kit$(EXE): build/tcl build/tk build/tclvfs build/mk build/itcl build/zlib $(GUIOBJ)
 	$(CC) -o $(OUTDIR)/kitInit-gui$O $(CFLAGS) -DSTATIC_BUILD \
@@ -205,12 +213,15 @@ kit$(EXE): build/tcl build/tk build/tclvfs build/mk build/itcl build/zlib $(GUIO
 	  -Ibuild/include -DSTATIC_BUILD \
 	  build/lib/vfs1*/*vfs1*$A build/lib/Mk4tcl*/*Mk4tcl*$A \
 	  build/lib/libtk8*$A build/lib/itcl*/*itcl3*$A \
-	  build/lib/libz$A build/lib/*tcl8*$A $(LDFLAGS)  $(LDXXFLAGS) \
+	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS)  $(LDXXFLAGS) \
 	  $(GUI_OPTS)
 
+# Metakit's config.h is the template copied as is, so SIZEOF_LONG is never
+# set and a long is taken for 32 bits: wrong on 64-bit Unix.
 build/mk: build/tcl
 	mkdir -p $@ && cd $@ && CFLAGS="$(CFLAGS)" && export CFLAGS && \
 	  sh $(EXTDIR)/mk/tcl/configure $(STATIC) $(TCLDIR) $(MK_OPTS) && \
+	  echo '#define SIZEOF_LONG __SIZEOF_LONG__' >> config.h && \
 	  $(MAKE) binaries && $(MAKE) -j1 install-binaries install-libraries || $(FAILED)
 
 build/itcl: build/tcl
