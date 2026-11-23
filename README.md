@@ -61,6 +61,7 @@ With **9.x**, wrapping is built into the tclkit and sdx is not used:
 
     tclkit -wrap demo.exe demo.vfs
     tclkit -wrap demo.exe demo.vfs -runtime tclkit-gui.exe
+    tclkit -wrap demo.exe demo.vfs -icon demo.ico     # Windows: other icons
     tclkit -wrap demo.kit demo.vfs        # just the application, run as: tclkit demo.kit
 
 ### Tcl 9 is different inside

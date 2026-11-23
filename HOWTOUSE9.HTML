@@ -265,6 +265,12 @@ itself is still done by the console tclkit.</P>
 
 <PRE>D:\Temp&gt; tclkit -wrap demo.exe demo.vfs -runtime tclkit-gui.exe</PRE>
 
+<P>On Windows, <code>-icon</code> gives the executable the icons of an <code>.ico</code> file. All
+image sizes in the file are used. With a Tk runtime the default icon of the windows changes as
+well.</P>
+
+<PRE>D:\Temp&gt; tclkit -wrap demo.exe demo.vfs -runtime tclkit-gui.exe -icon demo.ico</PRE>
+
 <H3><A NAME="kit">Building a kit file</A></H3>
 
 <P>If the name of the target ends in <code>.kit</code>, <code>.zkit</code> or <code>.zip</code>, the result is a
