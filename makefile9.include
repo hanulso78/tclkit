@@ -43,8 +43,23 @@ tclkit-cli$(EXE): kit-cli$(EXE) $(VFSDEPS)
 	$(SETUPVFS) $(KIT_OPTS) $@ kit-cli$(EXE) cli
 	./$@ ../../validate9.tcl
 
+# Static packages linked into tclkit-gui (config.sh ext=dir, see README.md):
+# dir/init.c registers them, dir/*.a holds them, dir/ldflags names the
+# libraries they need and dir/vfs/ is copied into the kit.
+ifneq ($(KITEXT),)
+EXT_OBJ   = build/kitext.o
+EXT_DEPS  = $(EXT_OBJ) $(wildcard $(KITEXT)/*.a) $(KITEXT)/ldflags
+EXT_LIBS  = $(EXT_OBJ) $(wildcard $(KITEXT)/*.a) $(wildcard build/tk/libtkstub*.a) \
+	    $(shell cat $(KITEXT)/ldflags)
+EXT_FLAGS = -DKIT_EXT_INIT
+EXT_VFS   = -c ../../files/kitext.tcl
+endif
+
 tclkit-gui$(EXE): kit-cli$(EXE) kit-gui$(EXE) $(VFSDEPS)
-	$(SETUPVFS) $(KIT_OPTS) $@ kit-gui$(EXE) gui
+	KIT_EXT='$(KITEXT)' $(SETUPVFS) $(KIT_OPTS) $(EXT_VFS) $@ kit-gui$(EXE) gui
+
+build/kitext.o: $(KITEXT)/init.c | build/tk
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) -c $< -o $@
 
 tclkit-dyn$(EXE): kit-cli$(EXE) build/tkdyn $(VFSDEPS)
 	$(SETUPVFS) $(KIT_OPTS) $@ kit-cli$(EXE) dyn
@@ -59,15 +74,15 @@ kit-cli$(EXE): build/tcl $(PKGDIRS) ../../kitInit9.c Makefile
 	  $(PKGLIBS) $(TCLLIBS) $$TCL_LIBS $(LDFLAGS) $(CLI_OPTS)
 	$(STRIP) $(LDSTRIP) $@
 
-kit-gui$(EXE): build/tcl build/tk $(PKGDIRS) ../../kitInit9.c Makefile
+kit-gui$(EXE): build/tcl build/tk $(PKGDIRS) ../../kitInit9.c Makefile $(EXT_DEPS)
 	$(CC) $(CFLAGS) $(DEFS) $(INCS) $(TKINCS) \
 	  -DTK_LOCAL_APPINIT=TclKit_AppInit \
 	  -c ../tk/$(PLAT)/$(TKMAIN) -o build/tkAppInit.o
-	$(CC) $(CFLAGS) $(DEFS) $(INCS) $(TKINCS) -DKIT_INCLUDES_TK \
+	$(CC) $(CFLAGS) $(DEFS) $(INCS) $(TKINCS) -DKIT_INCLUDES_TK $(EXT_FLAGS) \
 	  -c ../../kitInit9.c -o build/kitInit9-gui.o
 	. build/tk/tkConfig.sh && \
 	$(CC) -o $@ $(CFLAGS) build/tkAppInit.o build/kitInit9-gui.o $(GUIRES) \
-	  $(PKGLIBS) $(TKLIBS) $(TCLLIBS) $$TK_LIBS $(LDFLAGS) $(GUI_OPTS)
+	  $(EXT_LIBS) $(PKGLIBS) $(TKLIBS) $(TCLLIBS) $$TK_LIBS $(LDFLAGS) $(GUI_OPTS)
 	$(STRIP) $(LDSTRIP) $@
 
 build/tcl:

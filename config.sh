@@ -17,9 +17,21 @@ if test ! -d $root
 for v in allenc allmsgs aqua b64 cli dyn gui ppc mk \
           gcov gprof sym thread tzdata univ x86 itcl sqlite
   do eval $v=0; done
+ext=
 
+# ext=dir: static packages to link into tclkit-gui (see README.md)
 while test $# != 0
-  do eval $1=1; shift; done
+  do case $1 in
+       ext=*)
+         ext=`cd "${1#ext=}" 2>/dev/null && { pwd -W 2>/dev/null || pwd; }` ||
+           { echo "error: directory '${1#ext=}' does not exist"; exit 1; }
+         for f in init.c ldflags; do
+           test -f "$ext/$f" || { echo "error: $ext has no $f"; exit 1; }
+         done ;;
+       *) eval $1=1 ;;
+     esac
+     shift
+  done
 
 #for v in thread allenc allmsgs tzdata cli dyn gui aqua x86 ppc univ
 #  do eval val=$`echo $v`; echo $v = "$val"; done
@@ -105,6 +117,7 @@ case `basename $root` in 8*) ;; *)
     echo
     echo "all:$targets"
     echo
+    case $ext in ?*) echo "KITEXT     = $ext"; echo ;; esac
     echo "include ../../makefile9.include"
   ) >$make
   case $verbose in 1) cat $make ;; esac
@@ -327,6 +340,7 @@ esac
   esac
   
   echo
+  case $ext in ?*) echo "KITEXT     = $ext"; echo ;; esac
   echo "include ../../makefile.include"
   
 ) >$make

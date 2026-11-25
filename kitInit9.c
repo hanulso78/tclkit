@@ -47,6 +47,10 @@ extern Tcl_LibraryInitProc Itcl_SafeInit;
 extern Tcl_LibraryInitProc Sqlite3_Init;
 extern Tcl_LibraryInitProc Sqlite3_SafeInit;
 #endif
+#ifdef KIT_EXT_INIT
+/* init.c of the static packages linked into tclkit-gui (config.sh ext=dir) */
+extern void TclKit_ExtInit(void);
+#endif
 
 /*
  * Evaluated once in the main interpreter after the normal initialisation.
@@ -344,6 +348,9 @@ TclKit_AppInit(
 #endif
 #ifdef KIT_INCLUDES_SQLITE
     Tcl_StaticLibrary(NULL, "Sqlite3", Sqlite3_Init, Sqlite3_SafeInit);
+#endif
+#ifdef KIT_EXT_INIT
+    TclKit_ExtInit();
 #endif
 
 #ifdef _WIN32

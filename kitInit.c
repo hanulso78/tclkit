@@ -64,6 +64,10 @@ Tcl_AppInitProc	Zlib_Init;
 #ifdef KIT_INCLUDES_ITCL
 Tcl_AppInitProc	Itcl_Init;
 #endif
+#ifdef KIT_EXT_INIT
+/* init.c of the static packages linked into tclkit-gui (config.sh ext=dir) */
+extern void TclKit_ExtInit(void);
+#endif
 #ifdef _WIN32
 Tcl_AppInitProc	Dde_Init, Dde_SafeInit, Registry_Init;
 #endif
@@ -191,6 +195,9 @@ TclKit_AppInit(Tcl_Interp *interp)
 #endif
 #ifdef KIT_INCLUDES_TK
     Tcl_StaticPackage(0, "Tk", Tk_Init, Tk_SafeInit);
+#endif
+#ifdef KIT_EXT_INIT
+    TclKit_ExtInit();
 #endif
 
     /* insert custom packages here */

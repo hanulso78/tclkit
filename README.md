@@ -133,8 +133,28 @@ script: 8.4.20, 8.5.19, 8.6.18 and 9.0.4.
 | `sym` | keep debugging symbols |
 | `gprof`, `gcov` | profiling / code coverage, 8.x (imply `sym`) |
 | `aqua`, `univ`, `ppc`, `x86` | Mac OS X, 8.x |
+| `ext=dir` | link the static packages in `dir` into `tclkit-gui`, see below |
 
 Without `cli`, `dyn` or `gui`, all three are built.
+
+### Static packages in tclkit-gui
+
+`ext=dir` links compiled extensions into `tclkit-gui`, so that it carries
+them with no shared libraries beside it. `dir` holds:
+
+| | |
+|---|---|
+| `*.a` | the static libraries of the packages |
+| `init.c` | `void TclKit_ExtInit(void)`, which registers them with `Tcl_StaticPackage` (8.x) or `Tcl_StaticLibrary` (9.x) |
+| `ldflags` | one line: the libraries they need, linked after them |
+| `vfs/` | optional: copied into the kit, e.g. `vfs/lib/<pkg>/pkgIndex.tcl` with `load {} Name` and the package's scripts |
+
+The packages are compiled against the stub libraries (`-DUSE_TCL_STUBS
+-DUSE_TK_STUBS`) like for a shared library; the link adds the kit's own
+Tk stub library. Only `tclkit-gui` takes them, `cli` and `dyn` stay as they are.
+
+    sh config.sh 8.6/kit-mine gui thread allenc allmsgs tzdata ext=/path/to/dir
+    cd 8.6/kit-mine && make
 
 What `mkdist.sh` uses:
 

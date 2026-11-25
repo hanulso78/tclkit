@@ -36,9 +36,23 @@ tclkit-dyn$(EXE): kit-dyn$(EXE) ../../setupvfs.tcl build/files
 	cp kit-dyn$(EXE) $@ && $(STRIP) $@ $@
 	./kit-cli -init- ../../setupvfs.tcl $(KIT_OPTS) $@ dyn
 
+# Static packages linked into tclkit-gui (config.sh ext=dir, see README.md):
+# dir/init.c registers them, dir/*.a holds them, dir/ldflags names the
+# libraries they need and dir/vfs/ is copied into the kit.
+ifneq ($(KITEXT),)
+EXT_OBJ   = $(OUTDIR)/kitext$O
+EXT_LIBS  = $(EXT_OBJ) $(wildcard $(KITEXT)/*$A) build/lib/libtkstub8*$A \
+	    $(shell cat $(KITEXT)/ldflags)
+EXT_FLAGS = -DKIT_EXT_INIT
+EXT_VFS   = -c ../../files/kitext.tcl
+endif
+
 tclkit-gui$(EXE): kit-cli$(EXE) kit-gui$(EXE) ../../setupvfs.tcl build/files
 	cp kit-gui$(EXE) $@ && $(STRIP) $@
-	./kit-cli -init- ../../setupvfs.tcl $(KIT_OPTS) $@ gui
+	KIT_EXT='$(KITEXT)' ./kit-cli -init- ../../setupvfs.tcl $(KIT_OPTS) $(EXT_VFS) $@ gui
+
+$(OUTDIR)/kitext$O: $(KITEXT)/init.c | build/tk
+	$(CC) -o $@ $(CFLAGS) -DSTATIC_BUILD -Ibuild/include -c $<
 
 kit-cli$(EXE): build/tcl build/tclvfs build/vqtcl build/zlib $(CLIOBJ)
 	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(CLIOBJ) \
@@ -52,9 +66,10 @@ kit-dyn$(EXE): build/tcl build/tclvfs build/vqtcl build/zlib build/tkdyn $(CLIOB
 	  build/lib/vfs1*/*vfs1*$A build/lib/vqtcl4*/*vqtcl4*$A \
 	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS)
 
-kit-gui$(EXE): build/tcl build/tk build/tclvfs build/vqtcl build/zlib $(GUIOBJ)
-	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(GUIOBJ) \
-	  -Ibuild/include -DKIT_LITE -DSTATIC_BUILD $(KITFLAGS) \
+kit-gui$(EXE): build/tcl build/tk build/tclvfs build/vqtcl build/zlib $(GUIOBJ) $(EXT_OBJ) \
+		$(if $(KITEXT),$(wildcard $(KITEXT)/*$A) $(KITEXT)/ldflags)
+	$(CC) -o $@ $(CFLAGS) ../../kitInit.c $(GUIOBJ) $(EXT_LIBS) \
+	  -Ibuild/include -DKIT_LITE -DSTATIC_BUILD $(KITFLAGS) $(EXT_FLAGS) \
 	  build/lib/vfs1*/*vfs1*$A build/lib/vqtcl4*/*vqtcl4*$A \
 	  -DKIT_INCLUDES_TK build/lib/libtk8*$A \
 	  build/zlib/libz$A build/lib/*tcl8*$A $(LDFLAGS) $(GUI_OPTS)
